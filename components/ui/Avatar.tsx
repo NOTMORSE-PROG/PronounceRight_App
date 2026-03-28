@@ -1,0 +1,49 @@
+import React from 'react';
+import { View, Text } from 'react-native';
+
+interface AvatarProps {
+  name: string;
+  size?: number;
+}
+
+const GRADIENT_PAIRS = [
+  ['#2196F3', '#1565C0'],
+  ['#00BCD4', '#0097A7'],
+  ['#FF9800', '#F57C00'],
+  ['#10B981', '#065F46'],
+  ['#7C3AED', '#5B21B6'],
+];
+
+function getColorPair(name: string): [string, string] {
+  const idx = name.charCodeAt(0) % GRADIENT_PAIRS.length;
+  return GRADIENT_PAIRS[idx] as [string, string];
+}
+
+export default function Avatar({ name, size = 48 }: AvatarProps) {
+  const initials = name
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  const [bg] = getColorPair(name);
+  const fontSize = size * 0.36;
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text style={{ color: '#FFFFFF', fontSize, fontWeight: '700', letterSpacing: 1 }}>
+        {initials}
+      </Text>
+    </View>
+  );
+}

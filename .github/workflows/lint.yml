@@ -1,0 +1,43 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    name: Lint (Mobile + Backend)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      # ── Mobile App ──────────────────────────────────────────────────────────
+      - name: Install mobile dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Type-check mobile
+        run: npm run type-check
+
+      - name: Lint mobile
+        run: npm run lint
+
+      # ── Backend ─────────────────────────────────────────────────────────────
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Type-check backend
+        run: npx tsc --noEmit
+        working-directory: backend
+
+      - name: Lint backend
+        run: npm run lint
+        working-directory: backend

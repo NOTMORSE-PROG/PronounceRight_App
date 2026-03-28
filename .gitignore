@@ -39,3 +39,12 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Docs
+*.pdf
+*.docx
+
+# Backend
+backend/node_modules/
+backend/.next/
+backend/.env*.local
