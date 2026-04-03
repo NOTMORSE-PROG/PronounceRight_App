@@ -4,6 +4,7 @@ import { module2Content } from './module2';
 
 export { module1Content } from './module1';
 export { module2Content } from './module2';
+export { WORD_OF_THE_DAY_BANK } from './word-of-the-day';
 
 const ALL_CONTENT: ChapterContent[] = [...module1Content, ...module2Content];
 

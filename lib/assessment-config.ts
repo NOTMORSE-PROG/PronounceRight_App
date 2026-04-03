@@ -35,6 +35,7 @@ export const ASSESSMENT_CONFIG = {
     bothWordsThreshold: 20,  // if phonemeAccuracyScore < this for BOTH pair words → hallucination
     retryThreshold:     25,  // if score < this for target → retry once
     retryTemperature:   0.1, // slight randomness on retry to break hallucination loop
+    wordModeThreshold:  20,  // word-mode: if best-word score < this vs reference → treat as hallucination
   },
 
   engineTuning: {

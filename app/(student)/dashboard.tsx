@@ -16,7 +16,10 @@ import QuickStats from '@/components/dashboard/QuickStats';
 import ContinueCard from '@/components/dashboard/ContinueCard';
 import ModuleCard from '@/components/module/ModuleCard';
 import BadgeCard from '@/components/badges/BadgeCard';
+import WordOfTheDayCard from '@/components/dashboard/WordOfTheDayCard';
 import { MODULES_DATA } from '@/types';
+import { WORD_OF_THE_DAY_BANK } from '@/content';
+import { getTodaysWord, getTodaysWordIndex, todayKey } from '@/lib/word-of-the-day';
 
 const MODULES_WITH_IDS = MODULES_DATA.map((m, i) => ({
   ...m,
@@ -26,10 +29,24 @@ const MODULES_WITH_IDS = MODULES_DATA.map((m, i) => ({
 
 export default function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
-  const { totalPoints, streak, getBadges, getModuleCompletion, chapterProgress } = useProgressStore();
+  const { getCurrentStreak, getBadges, getModuleCompletion, chapterProgress, recordWotdPractice, getWotdScore } = useProgressStore();
+
+  const streak = getCurrentStreak();
+
+  // Word of the Day
+  const todaysWord = getTodaysWord();
+  const wordIndex = getTodaysWordIndex() + 1; // 1-based
+  const today = todayKey();
+  const wotdBestScore = getWotdScore(today);
+  const wotdPracticedToday = wotdBestScore !== null;
+
+  function handleWotdComplete(score: number) {
+    recordWotdPractice(today, score);
+  }
 
   const fullName = user?.fullName ?? 'Student';
   const badges = getBadges();
+  const badgeCount = badges.filter((b) => b.earnedAt !== null).length;
   const earnedBadges = badges.filter((b) => b.earnedAt !== null).slice(0, 5);
 
   // Find the first incomplete chapter across all modules (sequential unlock)
@@ -55,8 +72,12 @@ export default function DashboardScreen() {
     ? getModuleCompletion(continueModule.id, continueModule.chapters.map((c) => c.id))
     : 100;
 
-  // Avg accuracy placeholder
-  const avgAccuracy = 0;
+  const completedEntries = Object.values(chapterProgress).filter(
+    (p) => p.completed && p.bestScore !== null,
+  );
+  const avgAccuracy = completedEntries.length > 0
+    ? Math.round(completedEntries.reduce((sum, p) => sum + (p.bestScore ?? 0), 0) / completedEntries.length)
+    : 0;
 
   return (
     <SafeAreaView className="flex-1 bg-surface-page" edges={['top']}>
@@ -84,9 +105,19 @@ export default function DashboardScreen() {
           {/* Welcome Banner */}
           <WelcomeBanner name={fullName} streak={streak} />
 
+          {/* Word of the Day */}
+          <WordOfTheDayCard
+            word={todaysWord}
+            wordIndex={wordIndex}
+            totalWords={WORD_OF_THE_DAY_BANK.length}
+            practicedToday={wotdPracticedToday}
+            bestScoreToday={wotdBestScore}
+            onPracticeComplete={handleWotdComplete}
+          />
+
           {/* Quick Stats */}
           <QuickStats
-            totalPoints={totalPoints}
+            badgeCount={badgeCount}
             streak={streak}
             avgAccuracy={avgAccuracy}
           />

@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Pressable, Platform, Linking } from 'react-native';
+import { View, Text, Pressable, Platform, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+import type { WhisperContext, WhisperVadContext } from 'whisper.rn';
+import { WHISPER_RECORDING_OPTIONS } from '@/lib/recording-options';
+import { assessText } from '@/lib/pronunciation-engine';
+import type { AssessmentResult } from '@/lib/pronunciation-engine';
 import { keepRecording, loadRecordings, retryRecording } from '@/lib/recordings-service';
+import { saveAssessment, getAssessments, deleteAssessment } from '@/lib/db';
+import AssessmentResultCard from './AssessmentResultCard';
 
 export interface DrillWord {
   word: string;
@@ -17,10 +23,20 @@ interface PronunciationDrillActivityProps {
   accentColor?: string;
   studentId?: string;
   activityId?: string;
+  whisperCtx?: WhisperContext;
+  vadCtx?: WhisperVadContext | null;
   onComplete?: (score: number) => void;
 }
 
-type WordStatus = 'idle' | 'recording' | 'review' | 'kept';
+type WordStatus = 'idle' | 'recording' | 'assessing' | 'review' | 'kept';
+
+/** Strip stress annotations like "reLAX" → "relax", "obJECT (verb)" → "object" */
+function cleanReferenceWord(word: string): string {
+  return word
+    .replace(/\s*\(.*?\)\s*/g, '')  // strip parenthetical like "(verb)"
+    .toLowerCase()
+    .trim();
+}
 
 export default function PronunciationDrillActivity({
   activityTitle,
@@ -30,10 +46,17 @@ export default function PronunciationDrillActivity({
   accentColor = '#2196F3',
   studentId,
   activityId,
+  whisperCtx,
+  vadCtx,
   onComplete,
 }: PronunciationDrillActivityProps) {
+  const isAssessed = passThreshold > 0 && !!whisperCtx;
+
   const [statuses, setStatuses] = useState<WordStatus[]>(words.map(() => 'idle'));
   const [recordingUris, setRecordingUris] = useState<Record<number, string>>({});
+  const [assessments, setAssessments] = useState<Record<number, AssessmentResult>>({});
+  const [noSpeechMsgs, setNoSpeechMsgs] = useState<Record<number, boolean>>({});
+  const [hallucinationMsgs, setHallucinationMsgs] = useState<Record<number, boolean>>({});
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [completed, setCompleted] = useState(false);
@@ -42,24 +65,39 @@ export default function PronunciationDrillActivity({
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const keptScoresRef = useRef<number[]>([]);
 
   useEffect(() => {
     Audio.requestPermissionsAsync().then(({ granted }) => setPermissionGranted(granted));
     return () => { soundRef.current?.unloadAsync(); };
   }, []);
 
+  // Restore saved recordings + assessments on mount
   useEffect(() => {
     if (!studentId || !activityId) { setLoadingRecordings(false); return; }
-    loadRecordings(studentId, activityId).then((saved) => {
+    Promise.all([
+      loadRecordings(studentId, activityId),
+      isAssessed ? getAssessments(studentId, activityId) : Promise.resolve([]),
+    ]).then(([saved, assessmentRows]) => {
       if (Object.keys(saved).length > 0) {
         setRecordingUris(saved);
         setStatuses((prev) =>
           prev.map((s, i) => (saved[i] !== undefined ? 'kept' : s))
         );
       }
+      // Restore assessment results
+      if (assessmentRows.length > 0) {
+        const restored: Record<number, AssessmentResult> = {};
+        for (const row of assessmentRows) {
+          restored[row.prompt_index] = parseAssessmentRow(row);
+          keptScoresRef.current.push(row.phonics_score);
+        }
+        setAssessments(restored);
+      }
       setLoadingRecordings(false);
     }).catch(() => setLoadingRecordings(false));
-  }, [studentId, activityId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Complete when all words are kept
   useEffect(() => {
@@ -67,7 +105,15 @@ export default function PronunciationDrillActivity({
     const allKept = statuses.every((s) => s === 'kept');
     if (allKept && !completed) {
       setCompleted(true);
-      onComplete?.(100); // all words recorded = activity complete
+      if (isAssessed) {
+        const scores = keptScoresRef.current;
+        const avg = scores.length > 0
+          ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+          : 100;
+        onComplete?.(avg);
+      } else {
+        onComplete?.(100);
+      }
     } else if (!allKept && completed) {
       setCompleted(false);
     }
@@ -79,11 +125,15 @@ export default function PronunciationDrillActivity({
 
     if (status === 'idle') {
       try {
+        // Stop any playing audio
+        if (soundRef.current) { await soundRef.current.unloadAsync(); soundRef.current = null; setPlayingIndex(null); }
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
         const { recording } = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY
+          WHISPER_RECORDING_OPTIONS
         );
         recordingRef.current = recording;
+        setNoSpeechMsgs((prev) => ({ ...prev, [index]: false }));
+        setHallucinationMsgs((prev) => ({ ...prev, [index]: false }));
         setStatuses((prev) => prev.map((s, i) => (i === index ? 'recording' : s)));
       } catch { /* ignore */ }
     } else if (status === 'recording') {
@@ -92,30 +142,80 @@ export default function PronunciationDrillActivity({
         await recordingRef.current?.stopAndUnloadAsync();
         recordingRef.current = null;
 
-        if (uri) {
-          if (studentId && activityId) {
-            try {
-              setSaveError(null);
-              const finalUri = await keepRecording(studentId, activityId, index, uri);
-              setRecordingUris((prev) => ({ ...prev, [index]: finalUri }));
-            } catch (e) {
-              // eslint-disable-next-line no-console
-              console.error('[DrillActivity] keepRecording failed:', e);
-              setSaveError('Could not save recording. Please try again.');
-              setStatuses((prev) => prev.map((s, i) => (i === index ? 'idle' : s)));
-              return;
-            }
-          } else {
-            setRecordingUris((prev) => ({ ...prev, [index]: uri }));
+        if (!uri) { setStatuses((prev) => prev.map((s, i) => (i === index ? 'idle' : s))); return; }
+
+        // Save recording file
+        let savedUri = uri;
+        if (studentId && activityId) {
+          try {
+            setSaveError(null);
+            savedUri = await keepRecording(studentId, activityId, index, uri);
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('[DrillActivity] keepRecording failed:', e);
+            setSaveError('Could not save recording. Please try again.');
+            setStatuses((prev) => prev.map((s, i) => (i === index ? 'idle' : s)));
+            return;
           }
         }
 
-        setStatuses((prev) => prev.map((s, i) => (i === index ? 'review' : s)));
+        // Run assessment if available and graded
+        if (isAssessed) {
+          setStatuses((prev) => prev.map((s, i) => (i === index ? 'assessing' : s)));
+          setRecordingUris((prev) => ({ ...prev, [index]: savedUri }));
+
+          try {
+            const refWord = cleanReferenceWord(words[index]!.word);
+            const result = await assessText(whisperCtx!, savedUri, refWord, vadCtx);
+
+            if (result.noSpeechDetected || result.hallucination) {
+              // Clean up recording and reset
+              if (studentId && activityId) {
+                await retryRecording(studentId, activityId, index).catch(() => {});
+              }
+              setRecordingUris((prev) => { const next = { ...prev }; delete next[index]; return next; });
+              setNoSpeechMsgs((prev) => ({ ...prev, [index]: result.noSpeechDetected }));
+              setHallucinationMsgs((prev) => ({ ...prev, [index]: result.hallucination }));
+              setStatuses((prev) => prev.map((s, i) => (i === index ? 'idle' : s)));
+              return;
+            }
+
+            // Save assessment to DB
+            if (studentId && activityId) {
+              await saveAssessment({
+                id: `${studentId}_${activityId}_${index}`,
+                student_id: studentId,
+                activity_id: activityId,
+                prompt_index: index,
+                phonics_score: result.phonicsScore,
+                transcript: result.transcript,
+                errors: JSON.stringify(result.errors),
+                created_at: new Date().toISOString(),
+              });
+            }
+
+            setAssessments((prev) => ({ ...prev, [index]: result }));
+            setStatuses((prev) => prev.map((s, i) => (i === index ? 'review' : s)));
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('[DrillActivity] assessment error:', e);
+            // Fall back to review without assessment
+            setStatuses((prev) => prev.map((s, i) => (i === index ? 'review' : s)));
+          }
+        } else {
+          // No assessment — go straight to review
+          setRecordingUris((prev) => ({ ...prev, [index]: savedUri }));
+          setStatuses((prev) => prev.map((s, i) => (i === index ? 'review' : s)));
+        }
       } catch { /* ignore */ }
     }
   }
 
   function handleKeep(index: number) {
+    const assessment = assessments[index];
+    if (assessment) {
+      keptScoresRef.current.push(assessment.phonicsScore);
+    }
     setStatuses((prev) => prev.map((s, i) => (i === index ? 'kept' : s)));
   }
 
@@ -125,10 +225,14 @@ export default function PronunciationDrillActivity({
       soundRef.current = null;
       setPlayingIndex(null);
     }
-    if (statuses[index] === 'kept' && studentId && activityId) {
-      try { await retryRecording(studentId, activityId, index); } catch { /* ignore */ }
+    if (studentId && activityId) {
+      await retryRecording(studentId, activityId, index).catch(() => {});
+      await deleteAssessment(studentId, activityId, index).catch(() => {});
     }
     setRecordingUris((prev) => { const next = { ...prev }; delete next[index]; return next; });
+    setAssessments((prev) => { const next = { ...prev }; delete next[index]; return next; });
+    setNoSpeechMsgs((prev) => ({ ...prev, [index]: false }));
+    setHallucinationMsgs((prev) => ({ ...prev, [index]: false }));
     setStatuses((prev) => prev.map((s, i) => (i === index ? 'idle' : s)));
   }
 
@@ -180,17 +284,22 @@ export default function PronunciationDrillActivity({
         {words.map((item, index) => {
           const status = statuses[index]!;
           const isRecording = status === 'recording';
+          const isAssessing = status === 'assessing';
           const isReview = status === 'review';
           const isKept = status === 'kept';
           const uri = recordingUris[index];
           const isPlaying = playingIndex === index;
+          const assessment = assessments[index];
+          const noSpeech = noSpeechMsgs[index];
+          const hallucination = hallucinationMsgs[index];
+          const canKeep = !isAssessed || !assessment || assessment.passed;
 
           return (
             <View
               key={index}
               className="rounded-xl border px-4 py-3"
               style={{
-                borderColor: isKept ? '#10B981' : isReview ? accentColor + '60' : isRecording ? '#EF4444' : '#BBDEFB',
+                borderColor: isKept ? '#10B981' : isReview ? accentColor + '60' : isRecording ? '#EF4444' : isAssessing ? accentColor + '40' : '#BBDEFB',
                 backgroundColor: isKept ? '#10B98108' : isReview ? accentColor + '08' : isRecording ? '#EF444408' : '#F8FFFE',
               }}
             >
@@ -226,6 +335,14 @@ export default function PronunciationDrillActivity({
                   </Pressable>
                 )}
 
+                {/* Assessing spinner */}
+                {isAssessing && (
+                  <View className="flex-row items-center gap-1.5">
+                    <ActivityIndicator size="small" color={accentColor} />
+                    <Text className="text-xs text-text-muted">Analysing...</Text>
+                  </View>
+                )}
+
                 {/* Kept state */}
                 {isKept && (
                   <View className="flex-row items-center gap-2">
@@ -234,6 +351,26 @@ export default function PronunciationDrillActivity({
                   </View>
                 )}
               </View>
+
+              {/* No-speech / hallucination message */}
+              {(noSpeech || hallucination) && status === 'idle' && (
+                <View className="rounded-lg px-2 py-1.5 mt-2" style={{ backgroundColor: '#F9731618' }}>
+                  <Text className="text-xs text-center font-semibold" style={{ color: '#EA580C' }}>
+                    {hallucination
+                      ? 'Could not understand — speak louder and closer'
+                      : 'No speech detected — try again'}
+                  </Text>
+                </View>
+              )}
+
+              {/* Assessment result card (review state) */}
+              {isReview && assessment && (
+                <AssessmentResultCard
+                  result={assessment}
+                  referenceText={cleanReferenceWord(item.word)}
+                  accentColor={accentColor}
+                />
+              )}
 
               {/* Review state: play + keep + retry */}
               {isReview && uri && (
@@ -249,14 +386,16 @@ export default function PronunciationDrillActivity({
                       {isPlaying ? 'Stop' : 'Play Back'}
                     </Text>
                   </Pressable>
-                  <Pressable
-                    onPress={() => handleKeep(index)}
-                    className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
-                    style={{ backgroundColor: '#10B98118' }}
-                  >
-                    <Ionicons name="checkmark-circle-outline" size={15} color="#10B981" />
-                    <Text className="text-xs font-semibold" style={{ color: '#10B981' }}>Keep</Text>
-                  </Pressable>
+                  {canKeep && (
+                    <Pressable
+                      onPress={() => handleKeep(index)}
+                      className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
+                      style={{ backgroundColor: '#10B98118' }}
+                    >
+                      <Ionicons name="checkmark-circle-outline" size={15} color="#10B981" />
+                      <Text className="text-xs font-semibold" style={{ color: '#10B981' }}>Keep</Text>
+                    </Pressable>
+                  )}
                   <Pressable
                     onPress={() => handleRetry(index)}
                     className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5 border border-border bg-surface-page"
@@ -264,29 +403,48 @@ export default function PronunciationDrillActivity({
                     <Ionicons name="refresh-outline" size={15} color="#546E7A" />
                     <Text className="text-xs font-semibold text-text-secondary">Try Again</Text>
                   </Pressable>
+                  {/* Gating message when assessment didn't pass */}
+                  {isAssessed && assessment && !assessment.passed && (
+                    <View className="w-full rounded-lg px-2 py-1.5 mt-1" style={{ backgroundColor: '#F9731615' }}>
+                      <Text className="text-xs text-center font-semibold" style={{ color: '#EA580C' }}>
+                        Re-record to pass (need {'\u2265'}{passThreshold}%)
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
 
               {/* Kept state: playback + redo */}
               {isKept && uri && (
-                <View className="flex-row gap-2 mt-2">
-                  <Pressable
-                    onPress={() => handlePlayback(index)}
-                    className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
-                    style={{ backgroundColor: isPlaying ? '#EF444420' : accentColor + '18' }}
-                  >
-                    <Ionicons name={isPlaying ? 'stop-circle' : 'play-circle'} size={15} color={isPlaying ? '#EF4444' : accentColor} />
-                    <Text className="text-xs font-semibold" style={{ color: isPlaying ? '#EF4444' : accentColor }}>
-                      {isPlaying ? 'Stop' : 'Play Back'}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleRetry(index)}
-                    className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5 border border-border bg-surface-page"
-                  >
-                    <Ionicons name="refresh-outline" size={15} color="#546E7A" />
-                    <Text className="text-xs font-semibold text-text-secondary">Redo</Text>
-                  </Pressable>
+                <View className="mt-2">
+                  {/* Show assessment score summary when kept */}
+                  {assessment && (
+                    <View className="flex-row items-center gap-1.5 mb-2">
+                      <Text className="text-xs font-semibold" style={{ color: assessment.band.color }}>
+                        Score: {assessment.phonicsScore}%
+                      </Text>
+                      <Text className="text-xs text-text-muted">— {assessment.band.message}</Text>
+                    </View>
+                  )}
+                  <View className="flex-row gap-2">
+                    <Pressable
+                      onPress={() => handlePlayback(index)}
+                      className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
+                      style={{ backgroundColor: isPlaying ? '#EF444420' : accentColor + '18' }}
+                    >
+                      <Ionicons name={isPlaying ? 'stop-circle' : 'play-circle'} size={15} color={isPlaying ? '#EF4444' : accentColor} />
+                      <Text className="text-xs font-semibold" style={{ color: isPlaying ? '#EF4444' : accentColor }}>
+                        {isPlaying ? 'Stop' : 'Play Back'}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleRetry(index)}
+                      className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5 border border-border bg-surface-page"
+                    >
+                      <Ionicons name="refresh-outline" size={15} color="#546E7A" />
+                      <Text className="text-xs font-semibold text-text-secondary">Redo</Text>
+                    </Pressable>
+                  </View>
                 </View>
               )}
             </View>
@@ -306,7 +464,13 @@ export default function PronunciationDrillActivity({
       {completed && (
         <View className="mt-4 rounded-xl p-3 flex-row items-center gap-2" style={{ backgroundColor: '#10B98118' }}>
           <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-          <Text className="text-sm font-semibold text-green-700">All words recorded and saved!</Text>
+          <Text className="text-sm font-semibold text-green-700">
+            {isAssessed
+              ? `All words completed! Average: ${keptScoresRef.current.length > 0
+                  ? Math.round(keptScoresRef.current.reduce((a, b) => a + b, 0) / keptScoresRef.current.length)
+                  : 100}%`
+              : 'All words recorded and saved!'}
+          </Text>
         </View>
       )}
     </View>
@@ -322,4 +486,29 @@ function ActivityHeader({ title, accentColor }: { title: string; accentColor: st
       <Text className="text-base font-bold text-text-primary flex-1">{title}</Text>
     </View>
   );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function parseAssessmentRow(row: import('@/lib/db').AssessmentRow): AssessmentResult {
+  const errors = JSON.parse(row.errors) as AssessmentResult['errors'];
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getBand, ASSESSMENT_CONFIG } = require('@/lib/assessment-config') as typeof import('@/lib/assessment-config');
+  return {
+    mode: 'word',
+    transcript: row.transcript,
+    cleanedTranscript: '',
+    phonicsScore: row.phonics_score,
+    accuracyScore: row.phonics_score,
+    fluencyScore: 90,
+    completenessScore: 100,
+    prosodyScore: 100,
+    errors,
+    band: getBand(row.phonics_score),
+    passed: row.phonics_score >= ASSESSMENT_CONFIG.passThreshold,
+    noSpeechDetected: false,
+    hallucination: false,
+    confusedWithPairWord: false,
+    wordResults: [],
+  };
 }

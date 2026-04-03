@@ -11,12 +11,15 @@ import PronunciationDrillActivity from '@/components/chapter/PronunciationDrillA
 import MinimalPairActivity from '@/components/chapter/MinimalPairActivity';
 import SpeechRecordingActivity, { SpeechPrompt } from '@/components/chapter/SpeechRecordingActivity';
 import SequencingActivity from '@/components/chapter/SequencingActivity';
+import ChapterReflectionCard from '@/components/chapter/ChapterReflectionCard';
 import { MODULES_DATA } from '@/types';
 import { getChapterContent } from '@/content';
 import { useProgressStore } from '@/stores/progress';
 import { useAuthStore } from '@/stores/auth';
 import { useWhisperModel } from '@/lib/engine/use-whisper-model';
 import { saveActivityCompletion, getActivityCompletion } from '@/lib/db';
+import { buildReflectionData } from '@/lib/reflection';
+import type { ReflectionData } from '@/lib/reflection';
 import type {
   Activity,
   StressMcqActivity,
@@ -208,6 +211,10 @@ function ActivityRenderer({
           words={activity.items.map((it) => ({ word: it.word }))}
           passThreshold={activity.passThreshold}
           accentColor={accentColor}
+          studentId={studentId}
+          activityId={activity.id}
+          whisperCtx={whisperCtx}
+          vadCtx={vadCtx}
           onComplete={(score) => onComplete(activity.id, score)}
         />
       );
@@ -251,6 +258,8 @@ function ActivityRenderer({
           accentColor={accentColor}
           studentId={studentId}
           activityId={activity.id}
+          whisperCtx={whisperCtx}
+          vadCtx={vadCtx}
           onComplete={(score) => onComplete(activity.id, score)}
         />
       );
@@ -296,6 +305,10 @@ function ActivityRenderer({
           words={activity.words.map((w) => ({ word: w }))}
           passThreshold={activity.passThreshold}
           accentColor={accentColor}
+          studentId={studentId}
+          activityId={activity.id}
+          whisperCtx={whisperCtx}
+          vadCtx={vadCtx}
           onComplete={(score) => onComplete(activity.id, score)}
         />
       );
@@ -328,6 +341,10 @@ function ActivityRenderer({
           words={activity.sentences.map((s) => ({ word: s }))}
           passThreshold={activity.passThreshold}
           accentColor={accentColor}
+          studentId={studentId}
+          activityId={activity.id}
+          whisperCtx={whisperCtx}
+          vadCtx={vadCtx}
           onComplete={(score) => onComplete(activity.id, score)}
         />
       );
@@ -396,7 +413,7 @@ export default function ChapterScreen() {
 
   // ─── Activity completion (feeds module % progress) ──────────────────────────
   const [activityScores, setActivityScores] = useState<Record<string, number>>({});
-  const { updateChapterProgress, addPoints, chapterProgress, updateLastStep, touchLastAccessed } = useProgressStore();
+  const { updateChapterProgress, chapterProgress, updateLastStep, touchLastAccessed, recordPractice, checkAndAwardBadges } = useProgressStore();
 
   const scorableIds = sections
     .filter((s): s is { kind: 'activity'; data: Activity } =>
@@ -429,7 +446,17 @@ export default function ChapterScreen() {
       lastStep: prev?.lastStep ?? null,
       lastAccessedAt: prev?.lastAccessedAt ?? null,
     });
-    if (avgScore >= 70) addPoints(50);
+    recordPractice();
+    checkAndAwardBadges();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allDone]);
+
+  // ─── Reflection data (built when chapter is complete) ────────────────────────
+  const [reflectionData, setReflectionData] = useState<ReflectionData | null>(null);
+
+  useEffect(() => {
+    if (!allDone || !studentId || scorableIds.length === 0) return;
+    buildReflectionData(studentId, sections, activityScores).then(setReflectionData).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allDone]);
 
@@ -605,54 +632,70 @@ export default function ChapterScreen() {
           {/* Navigation row / completion banner */}
           {hasContent && (
             isChapterDone ? (
-              // ── Chapter complete banner (last step done) ──────────────────
-              <View
-                className="rounded-2xl p-5 mt-2 mb-4 items-center"
-                style={{ backgroundColor: avgScore >= 70 ? '#10B98115' : '#EF444415' }}
-              >
-                <Ionicons
-                  name={avgScore >= 70 ? 'checkmark-circle' : 'close-circle'}
-                  size={48}
-                  color={avgScore >= 70 ? '#10B981' : '#EF4444'}
+              // ── Chapter complete: reflection card or simple banner ─────────
+              reflectionData ? (
+                <ChapterReflectionCard
+                  reflection={reflectionData}
+                  accentColor={color}
+                  moduleNumber={module.number}
+                  chapterNumber={chapter.number}
+                  nextChapterId={nextChapter?.id ?? null}
+                  onBackToModule={() =>
+                    router.push({ pathname: '/(student)/module/[moduleId]', params: { moduleId: module.id } })
+                  }
+                  onNextChapter={() =>
+                    nextChapter && router.replace({ pathname: '/(student)/module/chapter/[chapterId]', params: { chapterId: nextChapter.id } })
+                  }
                 />
-                <Text className="text-xl font-bold text-text-primary mt-3 mb-1">
-                  {avgScore >= 70 ? 'Chapter Complete!' : 'Keep Practicing!'}
-                </Text>
-                {scorableIds.length > 0 && (
-                  <Text className="text-sm text-text-muted mb-3">Score: {avgScore}%</Text>
-                )}
+              ) : (
                 <View
-                  className="rounded-full px-4 py-1.5 mb-4"
-                  style={{ backgroundColor: avgScore >= 70 ? '#10B981' : '#EF4444' }}
+                  className="rounded-2xl p-5 mt-2 mb-4 items-center"
+                  style={{ backgroundColor: avgScore >= 70 ? '#10B98115' : '#EF444415' }}
                 >
-                  <Text className="text-white text-xs font-bold">
-                    {avgScore >= 70 ? '+50 XP Earned' : 'Score 70%+ to earn XP'}
+                  <Ionicons
+                    name={avgScore >= 70 ? 'checkmark-circle' : 'close-circle'}
+                    size={48}
+                    color={avgScore >= 70 ? '#10B981' : '#EF4444'}
+                  />
+                  <Text className="text-xl font-bold text-text-primary mt-3 mb-1">
+                    {avgScore >= 70 ? 'Chapter Complete!' : 'Keep Practicing!'}
                   </Text>
-                </View>
-                <View className="flex-row gap-3 flex-wrap justify-center">
-                  <Pressable
-                    className="border-2 rounded-xl py-3 px-5 items-center active:opacity-70"
-                    style={{ borderColor: color }}
-                    onPress={() =>
-                      router.push({ pathname: '/(student)/module/[moduleId]', params: { moduleId: module.id } })
-                    }
+                  {scorableIds.length > 0 && (
+                    <Text className="text-sm text-text-muted mb-3">Score: {avgScore}%</Text>
+                  )}
+                  <View
+                    className="rounded-full px-4 py-1.5 mb-4"
+                    style={{ backgroundColor: avgScore >= 70 ? '#10B981' : '#EF4444' }}
                   >
-                    <Text className="font-semibold text-base" style={{ color }}>← Back to Module</Text>
-                  </Pressable>
-
-                  {nextChapter && (
+                    <Text className="text-white text-xs font-bold">
+                      {avgScore >= 70 ? 'Well done!' : 'Score 70%+ to pass'}
+                    </Text>
+                  </View>
+                  <View className="flex-row gap-3 flex-wrap justify-center">
                     <Pressable
-                      className="rounded-xl py-3 px-5 items-center active:opacity-80"
-                      style={{ backgroundColor: color }}
+                      className="border-2 rounded-xl py-3 px-5 items-center active:opacity-70"
+                      style={{ borderColor: color }}
                       onPress={() =>
-                        router.replace({ pathname: '/(student)/module/chapter/[chapterId]', params: { chapterId: nextChapter.id } })
+                        router.push({ pathname: '/(student)/module/[moduleId]', params: { moduleId: module.id } })
                       }
                     >
-                      <Text className="font-semibold text-base text-white">Next Chapter →</Text>
+                      <Text className="font-semibold text-base" style={{ color }}>{'\u2190'} Back to Module</Text>
                     </Pressable>
-                  )}
+
+                    {nextChapter && (
+                      <Pressable
+                        className="rounded-xl py-3 px-5 items-center active:opacity-80"
+                        style={{ backgroundColor: color }}
+                        onPress={() =>
+                          router.replace({ pathname: '/(student)/module/chapter/[chapterId]', params: { chapterId: nextChapter.id } })
+                        }
+                      >
+                        <Text className="font-semibold text-base text-white">Next Chapter {'\u2192'}</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
-              </View>
+              )
             ) : (
               // ── Back / Next nav row ───────────────────────────────────────
               <View className="flex-row items-center justify-between mt-4 mb-8 gap-3">

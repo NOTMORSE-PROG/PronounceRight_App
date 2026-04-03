@@ -2,28 +2,34 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChapterProgress, Badge, BadgeType, ALL_BADGES } from '@/types';
+import { getNewBadges } from '@/lib/badge-checker';
 
 interface ProgressState {
-  totalPoints: number;
   streak: number;
+  lastPracticeDate: string | null;
   chapterProgress: Record<string, ChapterProgress>;
   earnedBadges: Record<BadgeType, string>;  // BadgeType → earnedAt ISO string
-  addPoints: (pts: number) => void;
-  setStreak: (days: number) => void;
+  wotdHistory: Record<string, number>;      // "YYYY-MM-DD" → best phonics score
+  recordPractice: () => void;
+  getCurrentStreak: () => number;
   updateChapterProgress: (p: ChapterProgress) => void;
   updateLastStep: (chapterId: string, step: number) => void;
   touchLastAccessed: (chapterId: string) => void;
   awardBadge: (type: BadgeType) => void;
+  checkAndAwardBadges: () => void;
   getBadges: () => Badge[];
   getModuleCompletion: (moduleId: string, chapterIds: string[]) => number;
+  recordWotdPractice: (dateKey: string, score: number) => void;
+  getWotdScore: (dateKey: string) => number | null;
   reset: () => void;
 }
 
 const DEFAULT_STATE = {
-  totalPoints: 0,
   streak: 0,
+  lastPracticeDate: null as string | null,
   chapterProgress: {} as Record<string, ChapterProgress>,
   earnedBadges: {} as Record<BadgeType, string>,
+  wotdHistory: {} as Record<string, number>,
 };
 
 export const useProgressStore = create<ProgressState>()(
@@ -31,9 +37,23 @@ export const useProgressStore = create<ProgressState>()(
     (set, get) => ({
       ...DEFAULT_STATE,
 
-      addPoints: (pts) => set((s) => ({ totalPoints: s.totalPoints + pts })),
+      recordPractice: () => {
+        const today = new Date().toISOString().slice(0, 10);
+        const { lastPracticeDate, streak } = get();
+        if (lastPracticeDate === today) return;
+        const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+        const newStreak = lastPracticeDate === yesterday ? streak + 1 : 1;
+        set({ streak: newStreak, lastPracticeDate: today });
+      },
 
-      setStreak: (days) => set({ streak: days }),
+      getCurrentStreak: () => {
+        const { streak, lastPracticeDate } = get();
+        if (!lastPracticeDate) return 0;
+        const today = new Date().toISOString().slice(0, 10);
+        const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+        if (lastPracticeDate === today || lastPracticeDate === yesterday) return streak;
+        return 0;
+      },
 
       updateChapterProgress: (p) =>
         set((s) => ({
@@ -85,6 +105,18 @@ export const useProgressStore = create<ProgressState>()(
         }));
       },
 
+      checkAndAwardBadges: () => {
+        const state = get();
+        const newBadges = getNewBadges({
+          chapterProgress: state.chapterProgress,
+          earnedBadges: state.earnedBadges,
+          streak: state.streak,
+        });
+        for (const badge of newBadges) {
+          state.awardBadge(badge);
+        }
+      },
+
       getBadges: () => {
         const { earnedBadges } = get();
         return ALL_BADGES.map((b) => ({
@@ -102,16 +134,30 @@ export const useProgressStore = create<ProgressState>()(
         return Math.round((done / chapterIds.length) * 100);
       },
 
+      recordWotdPractice: (dateKey, score) =>
+        set((s) => ({
+          wotdHistory: {
+            ...s.wotdHistory,
+            [dateKey]: Math.max(score, s.wotdHistory[dateKey] ?? 0),
+          },
+        })),
+
+      getWotdScore: (dateKey) => {
+        const { wotdHistory } = get();
+        return wotdHistory[dateKey] ?? null;
+      },
+
       reset: () => set(DEFAULT_STATE),
     }),
     {
       name: 'pr_progress',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
-        totalPoints: s.totalPoints,
         streak: s.streak,
+        lastPracticeDate: s.lastPracticeDate,
         chapterProgress: s.chapterProgress,
         earnedBadges: s.earnedBadges,
+        wotdHistory: s.wotdHistory,
       }),
     },
   ),

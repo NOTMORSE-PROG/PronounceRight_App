@@ -45,7 +45,6 @@ export interface ChapterProgress {
 }
 
 export interface StudentProgress {
-  totalPoints: number;
   streak: number;
   moduleProgress: ModuleProgress[];
 }
@@ -277,3 +276,5 @@ export type {
   Activity,
   ActivityItem,
 } from './content';
+
+export type { WordOfTheDayEntry } from './word-of-the-day';

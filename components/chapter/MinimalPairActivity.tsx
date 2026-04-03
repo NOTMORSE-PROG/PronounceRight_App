@@ -3,6 +3,7 @@ import { View, Text, Pressable, Platform, Linking, ActivityIndicator } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import type { WhisperContext, WhisperVadContext } from 'whisper.rn';
+import { WHISPER_RECORDING_OPTIONS } from '@/lib/recording-options';
 import type { MinimalPairItem } from '@/types/content';
 import { assessMinimalPair } from '@/lib/pronunciation-engine';
 import type { AssessmentResult } from '@/lib/pronunciation-engine';
@@ -34,9 +35,10 @@ interface SideState {
   assessment: AssessmentResult | null;
   feedback: MinimalPairFeedback | null;
   noSpeechMsg: boolean;
+  hallucinationMsg: boolean;
 }
 
-const INITIAL_SIDE: SideState = { status: 'idle', recordingUri: null, assessment: null, feedback: null, noSpeechMsg: false };
+const INITIAL_SIDE: SideState = { status: 'idle', recordingUri: null, assessment: null, feedback: null, noSpeechMsg: false, hallucinationMsg: false };
 
 export default function MinimalPairActivity({
   activityTitle,
@@ -91,8 +93,8 @@ export default function MinimalPairActivity({
       const rowA = assessmentRows.find((r) => r.prompt_index === resumeIdx * 2);
       const rowB = assessmentRows.find((r) => r.prompt_index === resumeIdx * 2 + 1);
 
-      if (uriA) setSideA({ status: 'kept', recordingUri: uriA, assessment: rowA ? parseAssessmentRow(rowA) : null, feedback: null, noSpeechMsg: false });
-      if (uriB) setSideB({ status: 'kept', recordingUri: uriB, assessment: rowB ? parseAssessmentRow(rowB) : null, feedback: null, noSpeechMsg: false });
+      if (uriA) setSideA({ status: 'kept', recordingUri: uriA, assessment: rowA ? parseAssessmentRow(rowA) : null, feedback: null, noSpeechMsg: false, hallucinationMsg: false });
+      if (uriB) setSideB({ status: 'kept', recordingUri: uriB, assessment: rowB ? parseAssessmentRow(rowB) : null, feedback: null, noSpeechMsg: false, hallucinationMsg: false });
     }).catch(() => {/* ignore */});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -120,9 +122,9 @@ export default function MinimalPairActivity({
         // Stop any playing audio first
         if (soundRef.current) { await soundRef.current.unloadAsync(); soundRef.current = null; setPlayingSide(null); }
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-        const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+        const { recording } = await Audio.Recording.createAsync(WHISPER_RECORDING_OPTIONS);
         recordingRef.current = recording;
-        setSide((s) => ({ ...s, status: 'recording', noSpeechMsg: false }));
+        setSide((s) => ({ ...s, status: 'recording', noSpeechMsg: false, hallucinationMsg: false }));
       } catch { /* ignore */ }
 
     } else if (sideState.status === 'recording') {
@@ -146,7 +148,11 @@ export default function MinimalPairActivity({
             if (studentId && activityId) {
               await retryRecording(studentId, activityId, promptIdx).catch(() => {/* ignore */});
             }
-            setSide({ status: 'idle', recordingUri: null, assessment: null, feedback: null, noSpeechMsg: true });
+            setSide({
+              status: 'idle', recordingUri: null, assessment: null, feedback: null,
+              noSpeechMsg: result.noSpeechDetected,
+              hallucinationMsg: result.hallucination,
+            });
             return;
           }
 
@@ -172,9 +178,9 @@ export default function MinimalPairActivity({
           // Track score for final average
           keptScoresRef.current.push(result.phonicsScore);
 
-          setSide({ status: 'review', recordingUri: savedUri, assessment: result, feedback: fb, noSpeechMsg: false });
+          setSide({ status: 'review', recordingUri: savedUri, assessment: result, feedback: fb, noSpeechMsg: false, hallucinationMsg: false });
         } else {
-          setSide({ status: 'review', recordingUri: savedUri, assessment: null, feedback: null, noSpeechMsg: false });
+          setSide({ status: 'review', recordingUri: savedUri, assessment: null, feedback: null, noSpeechMsg: false, hallucinationMsg: false });
         }
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -224,7 +230,7 @@ export default function MinimalPairActivity({
       await deleteAssessment(studentId, activityId, promptIdx).catch(() => {/* ignore */});
     }
     const setSide = side === 'A' ? setSideA : setSideB;
-    setSide({ status: 'idle', recordingUri: null, assessment: null, feedback: null, noSpeechMsg: false });
+    setSide({ status: 'idle', recordingUri: null, assessment: null, feedback: null, noSpeechMsg: false, hallucinationMsg: false });
     if (pairSubmitted) setPairSubmitted(false);
   }
 
@@ -482,7 +488,7 @@ function WordCard({
   onKeep: () => void;
   onRetry: () => void;
 }) {
-  const { status, noSpeechMsg } = sideState;
+  const { status, noSpeechMsg, hallucinationMsg } = sideState;
   const isIdle      = status === 'idle';
   const isRecording = status === 'recording';
   const isAssessing = status === 'assessing';
@@ -512,11 +518,13 @@ function WordCard({
         {ipa}
       </Text>
 
-      {/* No-speech message */}
-      {noSpeechMsg && (
+      {/* No-speech / hallucination message */}
+      {(noSpeechMsg || hallucinationMsg) && (
         <View className="rounded-lg px-2 py-1.5 mb-2 w-full" style={{ backgroundColor: '#F9731618' }}>
           <Text className="text-xs text-center font-semibold" style={{ color: '#EA580C' }}>
-            No speech — try again
+            {hallucinationMsg
+              ? 'Could not understand — speak louder and closer'
+              : 'No speech detected — try again'}
           </Text>
         </View>
       )}

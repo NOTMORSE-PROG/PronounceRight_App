@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Pressable, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+import { WHISPER_RECORDING_OPTIONS } from '@/lib/recording-options';
 import type { SentenceSequencingPassage } from '@/types/content';
 
 interface SequencingActivityProps {
@@ -82,7 +83,7 @@ export default function SequencingActivity({
       try {
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
         const { recording } = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY
+          WHISPER_RECORDING_OPTIONS
         );
         recordingRef.current = recording;
         setIsRecording(true);

@@ -16,15 +16,18 @@ const MODULE_COLORS = ['#2196F3', '#00BCD4', '#FF9800'];
 export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const { totalPoints, getBadges, getModuleCompletion } = useProgressStore();
+  const { getBadges, getModuleCompletion } = useProgressStore();
 
   const fullName = user?.fullName ?? 'Student';
   const className = user?.className ?? 'No Class';
   const badges = getBadges();
   const earnedBadgesCount = badges.filter((b) => b.earnedAt !== null).length;
-  const lessonsCompleted = Object.values(useProgressStore.getState().chapterProgress).filter(
-    (p) => p.completed,
-  ).length;
+  const chapterProgressValues = Object.values(useProgressStore.getState().chapterProgress);
+  const lessonsCompleted = chapterProgressValues.filter((p) => p.completed).length;
+  const completedWithScore = chapterProgressValues.filter((p) => p.completed && p.bestScore !== null);
+  const avgAccuracy = completedWithScore.length > 0
+    ? Math.round(completedWithScore.reduce((sum, p) => sum + (p.bestScore ?? 0), 0) / completedWithScore.length)
+    : 0;
 
   async function handleLogout() {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -65,7 +68,7 @@ export default function ProfileScreen() {
             <View className="flex-row gap-3">
               {[
                 { icon: '📚', value: lessonsCompleted, label: 'Lessons Done' },
-                { icon: '🏆', value: totalPoints, label: 'Total Points' },
+                { icon: '📊', value: `${avgAccuracy}%`, label: 'Accuracy' },
                 { icon: '🥇', value: earnedBadgesCount, label: 'Badges' },
               ].map((stat) => (
                 <View

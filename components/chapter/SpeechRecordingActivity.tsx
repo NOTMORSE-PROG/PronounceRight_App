@@ -3,6 +3,7 @@ import { View, Text, Pressable, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Audio } from 'expo-av';
+import { WHISPER_RECORDING_OPTIONS } from '@/lib/recording-options';
 import { keepRecording, loadRecordings, retryRecording } from '@/lib/recordings-service';
 
 export interface SpeechPrompt {
@@ -99,7 +100,7 @@ export default function SpeechRecordingActivity({
       try {
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
         const { recording } = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY
+          WHISPER_RECORDING_OPTIONS
         );
         recordingRef.current = recording;
         setStatuses((prev) => prev.map((s, i) => (i === index ? 'recording' : s)));

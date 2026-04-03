@@ -1,5 +1,9 @@
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { saveRecording, getRecordings, deleteRecording } from './db';
+
+/** iOS records WAV for Whisper; Android records m4a */
+const RECORDING_EXT = Platform.OS === 'ios' ? '.wav' : '.m4a';
 
 function getRecordingsDir(): string {
   const base = FileSystem.documentDirectory;
@@ -22,7 +26,7 @@ export async function keepRecording(
 ): Promise<string> {
   const recordingsDir = getRecordingsDir();
   await ensureDir(recordingsDir);
-  const destPath = `${recordingsDir}${studentId}_${activityId}_${promptIndex}.m4a`;
+  const destPath = `${recordingsDir}${studentId}_${activityId}_${promptIndex}${RECORDING_EXT}`;
 
   // Verify source exists before copying
   const srcInfo = await FileSystem.getInfoAsync(tempUri);

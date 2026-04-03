@@ -19,12 +19,20 @@ export interface TranscriptionResult {
 }
 
 /**
- * Known Whisper hallucination PHRASES — only multi-word filler strings
- * that cannot be valid single-word speech.
+ * Known Whisper hallucination strings — single-word sound-event labels and
+ * multi-word filler strings that cannot be valid speech.
  */
 const HALLUCINATIONS = new Set([
-  'thank you', 'thank you.', 'thanks for watching', 'please subscribe',
-  'like and subscribe', 'see you next time', 'bye bye',
+  // Multi-word filler
+  'thank you', 'thank you.', 'thanks for watching', 'thanks for watching.',
+  'please subscribe', 'please subscribe.', 'like and subscribe',
+  'see you next time', 'bye bye', 'the end', 'subtitle by', 'subtitles by',
+  'translated by', 'thank you for watching',
+  // Single-word sound-event labels Whisper commonly hallucinates
+  'gunshot', 'gunshots', 'silence', 'applause', 'music', 'laughter',
+  'coughing', 'breathing', 'footsteps', 'clapping', 'boom', 'bang',
+  'explosion', 'sigh', 'whistling', 'snoring', 'crying', 'screaming',
+  'beep', 'ring', 'bell', 'knock', 'crash', 'you',
 ]);
 
 /** Strip punctuation and lowercase. */
@@ -82,6 +90,25 @@ async function runWhisper(
   return (result.result ?? '').trim();
 }
 
+/**
+ * Run Whisper with VAD as a soft signal (not a hard gate).
+ * VAD result is returned alongside the transcript so callers can combine both signals.
+ */
+async function runWhisperWithSoftVad(
+  ctx: WhisperContext,
+  uri: string,
+  vadCtx: WhisperVadContext | null | undefined,
+  opts: Record<string, unknown>,
+): Promise<{ rawText: string; vadSaidNoSpeech: boolean }> {
+  let vadSaidNoSpeech = false;
+  if (vadCtx) {
+    vadSaidNoSpeech = !(await hasSpeech(vadCtx, uri));
+  }
+  // Always run Whisper — VAD is advisory, not a gate
+  const rawText = await runWhisper(ctx, uri, opts);
+  return { rawText, vadSaidNoSpeech };
+}
+
 // ─── General transcription (used by assessText for all modes) ─────────────────
 
 export async function transcribeAudio(
@@ -94,31 +121,49 @@ export async function transcribeAudio(
   const isWord = mode === 'word';
   const uri = audioUri.startsWith('file://') ? audioUri : `file://${audioUri}`;
 
-  // VAD pre-filter: skip Whisper entirely if no speech detected
-  if (vadCtx && !(await hasSpeech(vadCtx, uri))) {
-    return { transcript: '', cleanedTranscript: '', noSpeech: true, hallucination: false };
-  }
-
   const opts: Record<string, unknown> = {
     maxLen: isWord ? 1 : 0,
     ...(isWord && { prompt: referenceText.trim() }),
   };
 
-  const rawText = await runWhisper(ctx, uri, opts);
+  // VAD is a soft signal — we always run Whisper
+  const { rawText, vadSaidNoSpeech } = await runWhisperWithSoftVad(ctx, uri, vadCtx, opts);
   const cleaned = cleanText(rawText);
 
+  // Both VAD and Whisper agree: no usable speech
   if (cleaned.length === 0 || HALLUCINATIONS.has(cleaned)) {
     return { transcript: rawText, cleanedTranscript: '', noSpeech: true, hallucination: false };
   }
+
+  // If VAD said no speech but Whisper found text, trust Whisper and continue
 
   const cleanedTranscript = isWord
     ? extractBestWord(cleaned, referenceText.toLowerCase().trim())
     : cleaned;
 
+  if (cleanedTranscript.length === 0) {
+    return { transcript: rawText, cleanedTranscript: '', noSpeech: true, hallucination: false };
+  }
+
+  // Word-mode secondary hallucination check: if best word scores very low
+  // against the reference, it's likely a hallucination (e.g. "gunshot" for "hello")
+  if (isWord) {
+    const refLower = referenceText.toLowerCase().trim();
+    const score = phonemeAccuracyScore(cleanedTranscript, refLower);
+    if (score < ASSESSMENT_CONFIG.hallucination.wordModeThreshold) {
+      return {
+        transcript: rawText,
+        cleanedTranscript: '',
+        noSpeech: vadSaidNoSpeech,
+        hallucination: !vadSaidNoSpeech, // if VAD saw speech but score is junk → hallucination
+      };
+    }
+  }
+
   return {
     transcript: rawText,
     cleanedTranscript,
-    noSpeech: cleanedTranscript.length === 0,
+    noSpeech: false,
     hallucination: false,
   };
 }
@@ -135,21 +180,20 @@ export async function transcribeForMinimalPair(
   const uri = audioUri.startsWith('file://') ? audioUri : `file://${audioUri}`;
   const cfg = ASSESSMENT_CONFIG.hallucination;
 
-  // VAD pre-filter
-  if (vadCtx && !(await hasSpeech(vadCtx, uri))) {
-    return { transcript: '', cleanedTranscript: '', noSpeech: true, hallucination: false };
-  }
-
   // Prompt with both words — gives Whisper awareness of the phoneme space
   const opts: Record<string, unknown> = {
     maxLen: 1,
     prompt: `${targetWord}, ${pairWord}`,
   };
 
-  let rawText = await runWhisper(ctx, uri, opts);
+  // VAD is a soft signal — always run Whisper
+  const { rawText: initialRaw } = await runWhisperWithSoftVad(ctx, uri, vadCtx, opts);
+  let rawText = initialRaw;
   let cleaned = cleanText(rawText);
 
+  // Both VAD and Whisper agree: no usable speech
   if (cleaned.length === 0 || HALLUCINATIONS.has(cleaned)) {
+    // Only return noSpeech if Whisper also found nothing useful
     return { transcript: rawText, cleanedTranscript: '', noSpeech: true, hallucination: false };
   }
 

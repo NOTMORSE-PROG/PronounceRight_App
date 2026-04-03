@@ -133,7 +133,7 @@ const SLIDES: Slide[] = [
     id: 'rewards',
     icon: '🏆',
     heading: 'Badges, Streaks & More',
-    body: 'Earn points for every attempt, keep daily streaks alive, and unlock 11 achievement badges.',
+    body: 'Keep daily streaks alive and unlock 11 achievement badges as you improve your pronunciation.',
     visual: <BadgePreview />,
     gradientColors: ['#E3F2FD', '#F0F7FF'],
   },
