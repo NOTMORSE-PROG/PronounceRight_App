@@ -1,5 +1,5 @@
 {
-  "name": "pronounceright",
+  "name": "speakright",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
@@ -12,12 +12,16 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
-    "@react-native-async-storage/async-storage": "^3.0.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@tanstack/react-query": "^5.95.2",
+    "cmu-pronouncing-dictionary": "^3.0.0",
     "expo": "~55.0.8",
+    "expo-asset": "^55.0.12",
     "expo-av": "^16.0.8",
     "expo-constants": "~55.0.9",
+    "expo-crypto": "~55.0.10",
     "expo-dev-client": "~55.0.18",
+    "expo-file-system": "~55.0.12",
     "expo-font": "~55.0.4",
     "expo-linear-gradient": "~55.0.9",
     "expo-linking": "~55.0.8",
@@ -37,6 +41,7 @@
     "react-native-svg": "^15.15.4",
     "react-native-worklets": "~0.7.4",
     "tailwindcss": "^3.4.19",
+    "whisper.rn": "^0.5.5",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

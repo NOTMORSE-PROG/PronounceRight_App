@@ -106,14 +106,14 @@ export default function ModuleCard({
           {chaptersCompleted} of {module.chapters.length} chapters completed
         </Text>
 
-        <Pressable
-          className="rounded-xl py-3 items-center active:opacity-80"
+        <View
+          className="rounded-xl py-3 items-center"
           style={{ backgroundColor: color }}
         >
           <Text className="text-white font-semibold text-base">
             {isLocked ? '🔒 Locked' : progress === 0 ? 'Start Module' : 'Continue'}
           </Text>
-        </Pressable>
+        </View>
       </View>
     </Pressable>
   );

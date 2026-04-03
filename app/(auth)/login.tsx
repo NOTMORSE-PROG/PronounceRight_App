@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/stores/auth';
-import type { AuthUser } from '@/types';
+import { loginStudent } from '@/lib/auth-service';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -24,21 +24,16 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
 
   const pinRef = useRef<TextInput>(null);
-  const { setAuth, setBypass } = useAuthStore();
-
-  function navigateAfterAuth() {
-    router.replace('/(student)/dashboard');
-  }
+  const { setAuth, hasSeenOnboarding } = useAuthStore();
 
   async function handleLogin() {
     const trimmedUsername = username.trim();
-    const trimmedPin = pin.trim();
 
     if (!trimmedUsername) {
       setError('Please enter your username.');
       return;
     }
-    if (trimmedPin.length < 4) {
+    if (pin.length < 4) {
       setError('PIN must be at least 4 digits.');
       return;
     }
@@ -46,30 +41,27 @@ export default function LoginScreen() {
     setError('');
     setLoading(true);
 
-    // Mock local auth — accepts any valid username + PIN
-    await new Promise((r) => setTimeout(r, 600));
+    try {
+      const result = await loginStudent(trimmedUsername, pin);
 
-    const mockUser: AuthUser = {
-      id: `local-${trimmedUsername}`,
-      username: trimmedUsername.toLowerCase().replace(/\s+/g, '_'),
-      fullName: trimmedUsername
-        .split(' ')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' '),
-      classId: undefined,
-      className: 'Grade 10',
-      avatarSeed: trimmedUsername.charAt(0).toUpperCase(),
-      createdAt: new Date().toISOString(),
-    };
+      if ('error' in result) {
+        setError('Incorrect username or PIN. Please try again.');
+        setLoading(false);
+        return;
+      }
 
-    await setAuth('mock-token', mockUser);
-    setLoading(false);
-    navigateAfterAuth();
-  }
+      await setAuth(result.user);
+      setLoading(false);
 
-  function handleBypass() {
-    setBypass();
-    router.replace('/(student)/dashboard');
+      if (hasSeenOnboarding) {
+        router.replace('/(student)/dashboard');
+      } else {
+        router.replace('/(auth)/onboarding');
+      }
+    } catch {
+      setError('Something went wrong. Please try again.');
+      setLoading(false);
+    }
   }
 
   return (
@@ -104,7 +96,7 @@ export default function LoginScreen() {
             <View className="bg-white rounded-2xl border border-border px-6 py-7">
               <Text className="text-xl font-bold text-text-primary mb-1">Welcome back!</Text>
               <Text className="text-sm text-text-muted mb-6">
-                Log in with your student username and PIN.
+                Log in with your username and PIN.
               </Text>
 
               {/* Username Field */}
@@ -138,7 +130,7 @@ export default function LoginScreen() {
                   <TextInput
                     ref={pinRef}
                     className="flex-1 text-base text-text-primary ml-3"
-                    placeholder="4-digit PIN"
+                    placeholder="4–6 digit PIN"
                     placeholderTextColor="#90A4AE"
                     value={pin}
                     onChangeText={setPin}
@@ -188,14 +180,12 @@ export default function LoginScreen() {
                 <View className="flex-1 h-px bg-border" />
               </View>
 
-              {/* Dev Bypass */}
+              {/* Create Account */}
               <Pressable
-                className="py-3 items-center active:opacity-70"
-                onPress={handleBypass}
+                className="bg-primary-50 border border-primary-200 rounded-xl py-4 items-center active:bg-primary-100"
+                onPress={() => router.push('/(auth)/signup')}
               >
-                <Text className="text-primary-500 font-medium text-sm">
-                  Continue as Guest (Dev Bypass) →
-                </Text>
+                <Text className="text-primary-600 font-bold text-base">Create Account</Text>
               </Pressable>
             </View>
 

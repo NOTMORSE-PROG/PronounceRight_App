@@ -8,6 +8,7 @@ import {
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useAuthStore } from '@/stores/auth';
 import { useProgressStore } from '@/stores/progress';
 import WelcomeBanner from '@/components/dashboard/WelcomeBanner';
@@ -25,19 +26,34 @@ const MODULES_WITH_IDS = MODULES_DATA.map((m, i) => ({
 
 export default function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
-  const { totalPoints, streak, getBadges, getModuleCompletion } = useProgressStore();
+  const { totalPoints, streak, getBadges, getModuleCompletion, chapterProgress } = useProgressStore();
 
   const fullName = user?.fullName ?? 'Student';
   const badges = getBadges();
   const earnedBadges = badges.filter((b) => b.earnedAt !== null).slice(0, 5);
 
-  // Find the first incomplete chapter across modules
-  const continueModule = MODULES_WITH_IDS[0]!;
-  const continueChapter = continueModule.chapters[0]!;
-  const continueProgress = getModuleCompletion(
-    continueModule.id,
-    continueModule.chapters.map((c) => c.id),
-  );
+  // Find the first incomplete chapter across all modules (sequential unlock)
+  let continueModule: (typeof MODULES_WITH_IDS)[number] | null = null;
+  let continueChapter: (typeof MODULES_WITH_IDS)[number]['chapters'][number] | null = null;
+
+  for (let i = 0; i < MODULES_WITH_IDS.length; i++) {
+    const mod = MODULES_WITH_IDS[i]!;
+    // Module is locked if previous module is not 100% complete
+    if (i > 0) {
+      const prev = MODULES_WITH_IDS[i - 1]!;
+      if (getModuleCompletion(prev.id, prev.chapters.map((c) => c.id)) < 100) break;
+    }
+    const chapter = mod.chapters.find((c) => !chapterProgress[c.id]?.completed);
+    if (chapter) {
+      continueModule = mod;
+      continueChapter = chapter;
+      break;
+    }
+  }
+
+  const continueProgress = continueModule
+    ? getModuleCompletion(continueModule.id, continueModule.chapters.map((c) => c.id))
+    : 100;
 
   // Avg accuracy placeholder
   const avgAccuracy = 0;
@@ -79,17 +95,30 @@ export default function DashboardScreen() {
           <View className="mb-6">
             <View className="flex-row items-center justify-between px-4 mb-3">
               <Text className="text-lg font-bold text-text-primary">Continue Learning</Text>
-              <Pressable>
+              <Pressable onPress={() => router.push('/(student)/modules')}>
                 <Text className="text-sm text-primary-500 font-medium">See all →</Text>
               </Pressable>
             </View>
-            <ContinueCard
-              moduleTitle={continueModule.title}
-              chapterTitle={continueChapter.title}
-              moduleId={continueModule.id}
-              chapterId={continueChapter.id}
-              progress={continueProgress}
-            />
+            {continueModule && continueChapter ? (
+              <ContinueCard
+                moduleTitle={continueModule.title}
+                chapterTitle={continueChapter.title}
+                moduleId={continueModule.id}
+                chapterId={continueChapter.id}
+                progress={continueProgress}
+                lastAccessedAt={chapterProgress[continueChapter.id]?.lastAccessedAt ?? null}
+              />
+            ) : (
+              <View className="mx-4 bg-white rounded-2xl border border-border p-6 items-center">
+                <Text className="text-3xl mb-2">🎉</Text>
+                <Text className="text-base font-semibold text-text-primary mb-1">
+                  All modules completed!
+                </Text>
+                <Text className="text-sm text-text-muted text-center">
+                  You've finished all available chapters. Great work!
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* My Modules — horizontal scroll */}
@@ -107,7 +136,13 @@ export default function DashboardScreen() {
                 <ModuleCard
                   module={item}
                   progress={getModuleCompletion(item.id, item.chapters.map((c) => c.id))}
-                  isLocked={index > 0}
+                  isLocked={
+                    index > 0 &&
+                    getModuleCompletion(
+                      MODULES_WITH_IDS[index - 1]!.id,
+                      MODULES_WITH_IDS[index - 1]!.chapters.map((c) => c.id),
+                    ) < 100
+                  }
                   compact
                 />
               )}
@@ -119,7 +154,7 @@ export default function DashboardScreen() {
             <View className="mb-6">
               <View className="flex-row items-center justify-between px-4 mb-3">
                 <Text className="text-lg font-bold text-text-primary">Recent Badges</Text>
-                <Pressable>
+                <Pressable onPress={() => router.push('/(student)/badges')}>
                   <Text className="text-sm text-primary-500 font-medium">See all →</Text>
                 </Pressable>
               </View>

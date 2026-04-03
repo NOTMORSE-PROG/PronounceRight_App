@@ -11,6 +11,8 @@ interface ProgressState {
   addPoints: (pts: number) => void;
   setStreak: (days: number) => void;
   updateChapterProgress: (p: ChapterProgress) => void;
+  updateLastStep: (chapterId: string, step: number) => void;
+  touchLastAccessed: (chapterId: string) => void;
   awardBadge: (type: BadgeType) => void;
   getBadges: () => Badge[];
   getModuleCompletion: (moduleId: string, chapterIds: string[]) => number;
@@ -35,7 +37,44 @@ export const useProgressStore = create<ProgressState>()(
 
       updateChapterProgress: (p) =>
         set((s) => ({
-          chapterProgress: { ...s.chapterProgress, [p.chapterId]: p },
+          chapterProgress: {
+            ...s.chapterProgress,
+            [p.chapterId]: { ...s.chapterProgress[p.chapterId], ...p },
+          },
+        })),
+
+      updateLastStep: (chapterId, step) =>
+        set((s) => ({
+          chapterProgress: {
+            ...s.chapterProgress,
+            [chapterId]: {
+              ...s.chapterProgress[chapterId],
+              chapterId,
+              attempts: s.chapterProgress[chapterId]?.attempts ?? 0,
+              bestScore: s.chapterProgress[chapterId]?.bestScore ?? null,
+              completed: s.chapterProgress[chapterId]?.completed ?? false,
+              completedAt: s.chapterProgress[chapterId]?.completedAt ?? null,
+              lastStep: step,
+              lastAccessedAt: s.chapterProgress[chapterId]?.lastAccessedAt ?? null,
+            },
+          },
+        })),
+
+      touchLastAccessed: (chapterId) =>
+        set((s) => ({
+          chapterProgress: {
+            ...s.chapterProgress,
+            [chapterId]: {
+              ...s.chapterProgress[chapterId],
+              chapterId,
+              attempts: s.chapterProgress[chapterId]?.attempts ?? 0,
+              bestScore: s.chapterProgress[chapterId]?.bestScore ?? null,
+              completed: s.chapterProgress[chapterId]?.completed ?? false,
+              completedAt: s.chapterProgress[chapterId]?.completedAt ?? null,
+              lastStep: s.chapterProgress[chapterId]?.lastStep ?? null,
+              lastAccessedAt: new Date().toISOString(),
+            },
+          },
         })),
 
       awardBadge: (type) => {

@@ -39,7 +39,13 @@ export default function ModulesScreen() {
                 module.id,
                 module.chapters.map((c) => c.id),
               )}
-              isLocked={index > 0}
+              isLocked={
+                index > 0 &&
+                getModuleCompletion(
+                  MODULES_WITH_IDS[index - 1]!.id,
+                  MODULES_WITH_IDS[index - 1]!.chapters.map((c) => c.id),
+                ) < 100
+              }
             />
           ))}
 
