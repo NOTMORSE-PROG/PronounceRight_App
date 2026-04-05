@@ -30,18 +30,16 @@ export default function ModulesScreen() {
             </Text>
           </View>
 
-          {/* Dev bypass toggle — only in dev builds */}
-          {__DEV__ && (
-            <Pressable
-              onPress={toggleDevUnlock}
-              className="mx-4 mb-3 px-3 py-2 rounded-lg self-start"
-              style={{ backgroundColor: devUnlockAll ? '#4CAF50' : '#9E9E9E' }}
-            >
-              <Text className="text-white text-xs font-bold">
-                {devUnlockAll ? 'DEV: All Unlocked' : 'DEV: Unlock All'}
-              </Text>
-            </Pressable>
-          )}
+          {/* Unlock all chapters toggle */}
+          <Pressable
+            onPress={toggleDevUnlock}
+            className="mx-4 mb-3 px-3 py-2 rounded-lg self-start"
+            style={{ backgroundColor: devUnlockAll ? '#4CAF50' : '#9E9E9E' }}
+          >
+            <Text className="text-white text-xs font-bold">
+              {devUnlockAll ? 'All Chapters Unlocked' : 'Unlock All Chapters'}
+            </Text>
+          </Pressable>
 
           {/* Module Cards */}
           {MODULES_WITH_IDS.map((module, index) => (

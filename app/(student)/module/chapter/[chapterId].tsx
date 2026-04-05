@@ -483,8 +483,8 @@ export default function ChapterScreen() {
       chapterId,
       attempts: (prev?.attempts ?? 0) + 1,
       bestScore: Math.max(avgScore, prev?.bestScore ?? 0),
-      completed: avgScore >= 70,
-      completedAt: avgScore >= 70 ? new Date().toISOString() : (prev?.completedAt ?? null),
+      completed: avgScore >= 90,
+      completedAt: avgScore >= 90 ? new Date().toISOString() : (prev?.completedAt ?? null),
       lastStep: prev?.lastStep ?? null,
       lastAccessedAt: prev?.lastAccessedAt ?? null,
     });
@@ -573,7 +573,7 @@ export default function ChapterScreen() {
     // Last activity is gated — pronunciation drills gate themselves and only call
     // onComplete when all pairs pass. For non-pronunciation last activities, require ≥70.
     // All earlier activities complete freely.
-    if (!isLastActivity || score >= 70) {
+    if (!isLastActivity || score >= 90) {
       setStepCompleted((prev) => ({ ...prev, [stepIndex]: true }));
     }
   }
@@ -702,25 +702,25 @@ export default function ChapterScreen() {
               ) : (
                 <View
                   className="rounded-2xl p-5 mt-2 mb-4 items-center"
-                  style={{ backgroundColor: avgScore >= 70 ? '#10B98115' : '#EF444415' }}
+                  style={{ backgroundColor: avgScore >= 90 ? '#10B98115' : '#EF444415' }}
                 >
                   <Ionicons
-                    name={avgScore >= 70 ? 'checkmark-circle' : 'close-circle'}
+                    name={avgScore >= 90 ? 'checkmark-circle' : 'close-circle'}
                     size={48}
-                    color={avgScore >= 70 ? '#10B981' : '#EF4444'}
+                    color={avgScore >= 90 ? '#10B981' : '#EF4444'}
                   />
                   <Text className="text-xl font-bold text-text-primary mt-3 mb-1">
-                    {avgScore >= 70 ? 'Chapter Complete!' : 'Keep Practicing!'}
+                    {avgScore >= 90 ? 'Chapter Complete!' : 'Keep Practicing!'}
                   </Text>
                   {scorableIds.length > 0 && (
                     <Text className="text-sm text-text-muted mb-3">Score: {avgScore}%</Text>
                   )}
                   <View
                     className="rounded-full px-4 py-1.5 mb-4"
-                    style={{ backgroundColor: avgScore >= 70 ? '#10B981' : '#EF4444' }}
+                    style={{ backgroundColor: avgScore >= 90 ? '#10B981' : '#EF4444' }}
                   >
                     <Text className="text-white text-xs font-bold">
-                      {avgScore >= 70 ? 'Well done!' : 'Score 70%+ to pass'}
+                      {avgScore >= 90 ? 'Well done!' : 'Score 90%+ to pass'}
                     </Text>
                   </View>
                   <View className="flex-row gap-3 flex-wrap justify-center">
@@ -734,7 +734,7 @@ export default function ChapterScreen() {
                       <Text className="font-semibold text-base" style={{ color }}>{'\u2190'} Back to Module</Text>
                     </Pressable>
 
-                    {nextChapter && (
+                    {nextChapter && avgScore >= 90 && (
                       <Pressable
                         className="rounded-xl py-3 px-5 items-center active:opacity-80"
                         style={{ backgroundColor: color }}

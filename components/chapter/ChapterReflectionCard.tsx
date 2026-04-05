@@ -53,7 +53,7 @@ export default function ChapterReflectionCard({
           style={{ backgroundColor: passed ? '#10B981' : '#EF4444' }}
         >
           <Text className="text-white text-xs font-bold">
-            {passed ? '+50 XP Earned' : 'Score 70%+ to earn XP'}
+            {passed ? '+50 XP Earned' : 'Score 90%+ to earn XP'}
           </Text>
         </View>
       </View>
@@ -159,7 +159,7 @@ export default function ChapterReflectionCard({
           </Text>
         </Pressable>
 
-        {nextChapterId && (
+        {nextChapterId && passed && (
           <Pressable
             className="rounded-xl py-3 px-5 items-center active:opacity-80"
             style={{ backgroundColor: accentColor }}

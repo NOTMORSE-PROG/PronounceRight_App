@@ -222,7 +222,7 @@ const m1c2: ChapterContent = {
         passThreshold: 90,
         items: [
           { kind: 'minimal_pair', wordA: 'ship',  ipaA: '/ʃɪp/',  wordB: 'sheep', ipaB: '/ʃiːp/' },
-          { kind: 'minimal_pair', wordA: 'live',  ipaA: '/lɪv/',  wordB: 'leave', ipaB: '/liːv/' },
+          { kind: 'minimal_pair', wordA: 'fill',  ipaA: '/fɪl/',  wordB: 'feel',  ipaB: '/fiːl/' },
           { kind: 'minimal_pair', wordA: 'bit',   ipaA: '/bɪt/',  wordB: 'beat',  ipaB: '/biːt/' },
           { kind: 'minimal_pair', wordA: 'sit',   ipaA: '/sɪt/',  wordB: 'seat',  ipaB: '/siːt/' },
           { kind: 'minimal_pair', wordA: 'full',  ipaA: '/fʊl/',  wordB: 'fool',  ipaB: '/fuːl/' },

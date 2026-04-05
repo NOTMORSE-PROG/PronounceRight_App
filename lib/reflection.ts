@@ -144,7 +144,7 @@ export async function buildReflectionData(
 
   return {
     avgScore,
-    passed: avgScore >= 70,
+    passed: avgScore >= 90,
     strongActivities,
     weakActivities,
     weakWords: weakWords.slice(0, 10), // Top 10 weakest words
