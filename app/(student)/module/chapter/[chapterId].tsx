@@ -322,6 +322,8 @@ function ActivityRenderer({
           direction={activity.direction}
           questions={questions}
           accentColor={accentColor}
+          studentId={studentId}
+          activityId={activity.id}
           onComplete={(score) => onComplete(activity.id, score)}
         />
       );
@@ -359,6 +361,8 @@ function ActivityRenderer({
           direction={activity.direction}
           questions={questions}
           accentColor={accentColor}
+          studentId={studentId}
+          activityId={activity.id}
           onComplete={(score) => onComplete(activity.id, score)}
         />
       );

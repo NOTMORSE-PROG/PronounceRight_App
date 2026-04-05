@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SpeakWordButton from '@/components/ui/SpeakWordButton';
+import { saveActivityCompletion, getActivityCompletion } from '@/lib/db';
 
 export interface McqQuestion {
   prompt: string;
@@ -15,6 +16,8 @@ interface MultipleChoiceActivityProps {
   direction: string;
   questions: McqQuestion[];
   accentColor?: string;
+  studentId?: string;
+  activityId?: string;
   onComplete?: (score: number) => void;
 }
 
@@ -23,6 +26,8 @@ export default function MultipleChoiceActivity({
   direction,
   questions,
   accentColor = '#2196F3',
+  studentId,
+  activityId,
   onComplete,
 }: MultipleChoiceActivityProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -30,6 +35,24 @@ export default function MultipleChoiceActivity({
   const [confirmed, setConfirmed] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [savedAnswers, setSavedAnswers] = useState<Record<number, string>>({});
+
+  // Restore saved completion on mount
+  useEffect(() => {
+    if (!studentId || !activityId) return;
+    getActivityCompletion(studentId, activityId).then((row) => {
+      if (!row) return;
+      const answers = JSON.parse(row.answers) as Record<number, string>;
+      setSavedAnswers(answers);
+      const correct = Object.entries(answers).filter(
+        ([i, val]) => questions[Number(i)]?.correctValue === val
+      ).length;
+      setCorrectCount(correct);
+      setFinished(true);
+      onComplete?.(row.score);
+    }).catch(() => {/* ignore */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const current = questions[currentIndex]!;
 
@@ -43,12 +66,25 @@ export default function MultipleChoiceActivity({
 
   function handleNext() {
     const nextIndex = currentIndex + 1;
+    const nextAnswers = { ...savedAnswers, [currentIndex]: selected! };
+    setSavedAnswers(nextAnswers);
+
     if (nextIndex >= questions.length) {
       const score = Math.round(
         ((correctCount + (selected === current.correctValue ? 1 : 0)) / questions.length) * 100
       );
       setFinished(true);
       onComplete?.(score);
+      if (studentId && activityId) {
+        saveActivityCompletion({
+          id: `${studentId}_${activityId}`,
+          student_id: studentId,
+          activity_id: activityId,
+          score,
+          answers: JSON.stringify(nextAnswers),
+          created_at: new Date().toISOString(),
+        }).catch(() => {/* ignore */});
+      }
     } else {
       setCurrentIndex(nextIndex);
       setSelected(null);

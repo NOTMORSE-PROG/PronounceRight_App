@@ -10,7 +10,7 @@ import { WHISPER_RECORDING_OPTIONS } from '@/lib/recording-options';
 import { keepRecording } from '@/lib/recordings-service';
 import { assessText } from '@/lib/pronunciation-engine';
 import type { AssessmentResult } from '@/lib/pronunciation-engine';
-import { saveAssessment, saveActivityCompletion } from '@/lib/db';
+import { saveAssessment, saveActivityCompletion, getActivityCompletion } from '@/lib/db';
 import { ASSESSMENT_CONFIG, getBand } from '@/lib/assessment-config';
 import AssessmentResultCard from '@/components/chapter/AssessmentResultCard';
 import SpeakWordButton from '@/components/ui/SpeakWordButton';
@@ -114,6 +114,21 @@ export default function SequencingActivity({
       if (timerRef.current) clearInterval(timerRef.current);
       if (checkTimeoutRef.current) clearTimeout(checkTimeoutRef.current);
     };
+  }, []);
+
+  // ── Restore saved completion on mount ─────────────────────────────────────────
+  useEffect(() => {
+    if (!studentId || !activityId) return;
+    getActivityCompletion(studentId, activityId).then((row) => {
+      if (!row) return;
+      const saved = JSON.parse(row.answers) as { passageScores?: number[] };
+      const scores = saved.passageScores ?? [];
+      setFinalScores(scores);
+      setFinalAvg(row.score);
+      setFinished(true);
+      onComplete?.(row.score);
+    }).catch(() => {/* ignore */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Pulsing mic ───────────────────────────────────────────────────────────────

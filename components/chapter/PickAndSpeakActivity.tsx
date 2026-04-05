@@ -5,6 +5,7 @@ import { Audio } from 'expo-av';
 import type { WhisperContext, WhisperVadContext } from 'whisper.rn';
 import { WHISPER_RECORDING_OPTIONS } from '@/lib/recording-options';
 import { keepRecording } from '@/lib/recordings-service';
+import { saveActivityCompletion, getActivityCompletion } from '@/lib/db';
 import { transcribeFreeSpeech } from '@/lib/engine/transcribe';
 import { scorePickAndSpeak } from '@/lib/engine/pick-and-speak-scorer';
 import type { PickAndSpeakResult } from '@/lib/engine/pick-and-speak-scorer';
@@ -60,6 +61,8 @@ export default function PickAndSpeakActivity({
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
 
+  const [restoredComplete, setRestoredComplete] = useState(false);
+
   // Permission check + cleanup
   useEffect(() => {
     Audio.requestPermissionsAsync().then(({ granted }) => setPermissionGranted(granted));
@@ -67,6 +70,18 @@ export default function PickAndSpeakActivity({
       recordingRef.current?.stopAndUnloadAsync();
       soundRef.current?.unloadAsync();
     };
+  }, []);
+
+  // Restore saved completion on mount
+  useEffect(() => {
+    if (!studentId) return;
+    getActivityCompletion(studentId, activity.id).then((row) => {
+      if (!row) return;
+      setRestoredComplete(true);
+      onComplete(row.score);
+      onAdvance?.();
+    }).catch(() => {/* ignore */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Prep countdown
@@ -192,6 +207,23 @@ export default function PickAndSpeakActivity({
     setPhase('selection');
   }, [activity.cueCards]);
 
+  // ─── Already completed (restored from DB) ─────────────────────────────────
+
+  if (restoredComplete) {
+    return (
+      <View className="bg-white rounded-2xl border border-border p-5 mb-3">
+        <Text className="text-base font-bold text-text-primary mb-1">{activity.title}</Text>
+        <View className="items-center py-4">
+          <View className="w-16 h-16 rounded-full items-center justify-center mb-3" style={{ backgroundColor: '#10B98120' }}>
+            <Ionicons name="checkmark-circle" size={36} color="#10B981" />
+          </View>
+          <Text className="text-xl font-bold text-text-primary mb-1">Completed!</Text>
+          <Text className="text-sm text-text-muted">Your response has been saved.</Text>
+        </View>
+      </View>
+    );
+  }
+
   // ─── Permission denied ──────────────────────────────────────────────────────
 
   if (permissionGranted === false) {
@@ -261,6 +293,16 @@ export default function PickAndSpeakActivity({
           onPlayback={handlePlayback}
           onRetry={handleRetry}
           onComplete={() => {
+            if (studentId) {
+              saveActivityCompletion({
+                id: `${studentId}_${activity.id}`,
+                student_id: studentId,
+                activity_id: activity.id,
+                score: speakResult.totalScore,
+                answers: JSON.stringify({ cardQuestion: selectedCard?.question, transcript: speakResult.transcript }),
+                created_at: new Date().toISOString(),
+              }).catch(() => {/* ignore */});
+            }
             onComplete(speakResult.totalScore);
             onAdvance?.();
           }}
