@@ -11,12 +11,15 @@ const m2c1: ChapterContent = {
         id: 'm2c1-l1',
         title: 'Word Stress',
         paragraphs: [
-          'Stress is an important part of speaking because it helps make speech clear and easy to understand. In English, some parts of words and sentences are spoken louder and stronger than others. This is called stress.',
-          'Word stress means that one syllable in a word is pronounced louder, longer, and clearer than the others. Knowing the correct stress helps listeners understand the word easily.',
-          'First syllable stress — the stress is on the first syllable: TAble (TA-ble), DOCtor (DOC-tor), TEAcher (TEA-cher).',
-          'Second syllable stress — the stress is on the second syllable: beGIN (be-GIN), aBOUT (a-BOUT), reLAX (re-LAX).',
-          'Third syllable stress — the stress is on the third syllable: un-der-STAND, in-ter-EST-ing, en-ter-TAIN.',
-          'Variable stress — stress can change the meaning of the word. Tip: first syllable = noun, second syllable = verb. Examples: OBject (noun, a thing) vs. obJECT (verb, to disagree); PREsent (noun, a gift) vs. preSENT (verb, to give or show); CONduct (noun, behavior) vs. conDUCT (verb, to lead or organize).',
+          'In English, one syllable in a word is spoken louder and longer than the others — this is called word stress. Correct stress makes you easier to understand.',
+        ],
+        examples: [
+          { text: '1st syllable — TAble, DOCtor, TEAcher',       explanation: 'Stress falls on the first syllable',  speakText: 'table, doctor, teacher' },
+          { text: '2nd syllable — beGIN, aBOUT, reLAX',          explanation: 'Stress falls on the second syllable', speakText: 'begin, about, relax' },
+          { text: '3rd syllable — underSTAND, interESTing, enterTAIN', explanation: 'Stress falls on the third syllable', speakText: 'understand, interesting, entertain' },
+          { text: 'OBject (noun)  vs.  obJECT (verb)',           explanation: 'Variable stress changes the word\'s meaning — 1st syllable = noun, 2nd = verb', speakText: 'object. object.' },
+          { text: 'PREsent (noun)  vs.  preSENT (verb)',         explanation: 'Variable stress changes the word\'s meaning', speakText: 'present. present.' },
+          { text: 'CONduct (noun)  vs.  conDUCT (verb)',         explanation: 'Variable stress changes the word\'s meaning', speakText: 'conduct. conduct.' },
         ],
       },
     },
@@ -80,9 +83,11 @@ const m2c2: ChapterContent = {
         id: 'm2c2-l1',
         title: 'Sentence Intonation',
         paragraphs: [
-          'Intonation refers to the rise and falls of the voice when speaking. It helps express meaning, emotion, and intention. Using correct intonation makes speech clearer and more natural.',
-          'Falling intonation (↘) — the voice goes down at the end of the sentence. It is used for statements, commands, and WH-questions. Examples: "I like English. ↘", "She is going to school. ↘", "Where are you going? ↘".',
-          'Rising intonation (↗) — the voice goes up at the end of the sentence. It is used for yes/no questions. Examples: "Are you ready? ↗", "Do you like English? ↗", "Is she your friend? ↗".',
+          'Intonation is how your voice rises and falls when speaking. It tells listeners what kind of sentence you are saying.',
+        ],
+        examples: [
+          { text: 'Falling ↘ — "I like English." / "Where are you going?"', explanation: 'Used for statements, commands, and WH-questions', speakText: 'I like English. Where are you going?' },
+          { text: 'Rising ↗ — "Are you ready?" / "Do you like English?"',    explanation: 'Used for yes/no questions',                       speakText: 'Are you ready? Do you like English?' },
         ],
       },
     },
@@ -125,6 +130,7 @@ const m2c2: ChapterContent = {
           'Do you like English?',
           'She is my best friend.',
         ],
+        expectedIntonations: ['rising', 'falling', 'falling', 'rising', 'falling'],
       },
     },
   ],
@@ -141,8 +147,7 @@ const m2c3: ChapterContent = {
         id: 'm2c3-l1',
         title: 'Lesson 1 — Common Expressions',
         paragraphs: [
-          'Common expressions are words or phrases that people often use in everyday conversation. These expressions help speakers communicate their ideas clearly and naturally.',
-          'Using common expressions makes speaking easier because you do not need to think too much about how to start your sentences. Instead, you can focus on what you want to say.',
+          'Common expressions are phrases people use to share opinions and ideas naturally. Using them lets you focus on what you want to say instead of how to start.',
         ],
         examples: [
           { text: '"I think English is important."',                                    explanation: 'Expresses a personal opinion' },
@@ -163,9 +168,39 @@ const m2c3: ChapterContent = {
           'Tap a card to reveal the question. Prepare your answer for 30–60 seconds, then speak using at least one common expression (e.g., "I think…", "In my opinion…", "I believe…"). Respond in 2–3 complete sentences.',
         passThreshold: 90,
         cueCards: [
-          'What is your favorite hobby and why do you enjoy it?',
-          'What do you usually do in your free time?',
-          'What is something you really like (e.g., music, games, food), and why do you like it?',
+          {
+            question: 'What is your favorite hobby and why do you enjoy it?',
+            keyPhrases: [
+              'I think my favorite hobby is ___',
+              'I enjoy it because ___',
+              'For me, ___ is relaxing / fun',
+            ],
+            modelAnswer:
+              'I think my favorite hobby is reading books. I enjoy it because I can learn new things and imagine different places. For me, reading is both relaxing and fun.',
+            topicKeywords: ['hobby', 'enjoy', 'like', 'play', 'sport', 'activity', 'fun', 'weekend', 'free time', 'favorite'],
+          },
+          {
+            question: 'What do you usually do in your free time?',
+            keyPhrases: [
+              'I usually ___ in my free time',
+              'I enjoy doing this because ___',
+              'I believe this is a good way to ___',
+            ],
+            modelAnswer:
+              'I usually watch videos and listen to music in my free time. I enjoy doing these things because they help me relax after school. I think free time is very important for everyone.',
+            topicKeywords: ['free time', 'usually', 'relax', 'watch', 'read', 'play', 'listen', 'spend', 'time', 'home'],
+          },
+          {
+            question: 'What is something you really like, and why do you like it?',
+            keyPhrases: [
+              'Something I really like is ___',
+              'I think ___ makes me feel ___',
+              'I believe ___ is important because ___',
+            ],
+            modelAnswer:
+              'I really like listening to music. I think music makes me feel happy and calm, especially after a hard day. For me, music is one of the best things in life.',
+            topicKeywords: ['like', 'love', 'enjoy', 'music', 'games', 'food', 'movie', 'book', 'sport', 'favorite', 'really'],
+          },
         ],
         sentenceCount: { min: 2, max: 3 },
       },
@@ -176,8 +211,7 @@ const m2c3: ChapterContent = {
         id: 'm2c3-l2',
         title: 'Lesson 2 — Sentence Starters',
         paragraphs: [
-          'Sentence starters are words or phrases used to begin and organize sentences. They help speakers connect their ideas and make speaking clearer and more organized.',
-          'Using sentence starters helps you speak more smoothly because you can easily continue your ideas.',
+          'Sentence starters are words that begin and connect your ideas, helping you speak in a clear and organized way.',
         ],
         examples: [
           { text: '"First, I study my lessons."',                              explanation: 'Shows the beginning' },

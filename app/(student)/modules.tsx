@@ -13,7 +13,7 @@ const MODULES_WITH_IDS = MODULES_DATA.map((m, i) => ({
 }));
 
 export default function ModulesScreen() {
-  const { getModuleCompletion } = useProgressStore();
+  const { getModuleCompletion, devUnlockAll, toggleDevUnlock } = useProgressStore();
 
   return (
     <SafeAreaView className="flex-1 bg-surface-page" edges={['top']}>
@@ -30,6 +30,19 @@ export default function ModulesScreen() {
             </Text>
           </View>
 
+          {/* Dev bypass toggle — only in dev builds */}
+          {__DEV__ && (
+            <Pressable
+              onPress={toggleDevUnlock}
+              className="mx-4 mb-3 px-3 py-2 rounded-lg self-start"
+              style={{ backgroundColor: devUnlockAll ? '#4CAF50' : '#9E9E9E' }}
+            >
+              <Text className="text-white text-xs font-bold">
+                {devUnlockAll ? 'DEV: All Unlocked' : 'DEV: Unlock All'}
+              </Text>
+            </Pressable>
+          )}
+
           {/* Module Cards */}
           {MODULES_WITH_IDS.map((module, index) => (
             <ModuleCard
@@ -40,6 +53,7 @@ export default function ModulesScreen() {
                 module.chapters.map((c) => c.id),
               )}
               isLocked={
+                !devUnlockAll &&
                 index > 0 &&
                 getModuleCompletion(
                   MODULES_WITH_IDS[index - 1]!.id,

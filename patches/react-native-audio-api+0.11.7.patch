@@ -1,0 +1,17 @@
+diff --git a/node_modules/react-native-audio-api/android/build.gradle b/node_modules/react-native-audio-api/android/build.gradle
+index 49b6f51..eec3e3c 100644
+--- a/node_modules/react-native-audio-api/android/build.gradle
++++ b/node_modules/react-native-audio-api/android/build.gradle
+@@ -307,8 +307,10 @@ def assertMinimalReactNativeVersion = task assertMinimalReactNativeVersionTask {
+ }
+ 
+ task downloadPrebuiltBinaries(type: Exec) {
+-  commandLine 'chmod', '+x', '../scripts/download-prebuilt-binaries.sh'
+-  commandLine 'bash', '../scripts/download-prebuilt-binaries.sh'
++  def bashExec = Os.isFamily(Os.FAMILY_WINDOWS)
++    ? "C:/Program Files/Git/bin/bash.exe"
++    : "bash"
++  commandLine bashExec, '../scripts/download-prebuilt-binaries.sh'
+   args 'android', isFFmpegDisabled() ? 'skipffmpeg' : ''
+ }
+ 

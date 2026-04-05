@@ -1,7 +1,19 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import SpeakWordButton from '@/components/ui/SpeakWordButton';
 import type { Lesson } from '@/types/content';
+
+/** Strip emojis, intonation arrows, and surrounding quotes so TTS reads clean text. */
+function extractSpeakableText(text: string): string {
+  return text
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+    .replace(/[\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[\u{FE00}-\u{FEFF}]/gu, '')
+    .replace(/[↗↘]/g, '')
+    .replace(/["""\u201C\u201D]/g, '')
+    .trim();
+}
 
 interface LessonCardProps {
   lesson: Lesson;
@@ -38,16 +50,19 @@ export default function LessonCard({ lesson, accentColor = '#2196F3' }: LessonCa
           {lesson.examples.map((ex, i) => (
             <View
               key={i}
-              className="rounded-xl p-3 mb-2"
+              className="rounded-xl p-3 mb-2 flex-row items-start gap-2"
               style={{ backgroundColor: accentColor + '0D' }}
             >
-              <Text
-                className="text-sm font-semibold text-text-primary mb-0.5"
-                style={{ color: accentColor }}
-              >
-                {ex.text}
-              </Text>
-              <Text className="text-sm italic" style={{ color: '#111111' }}>{ex.explanation}</Text>
+              <View className="flex-1">
+                <Text
+                  className="text-sm font-semibold text-text-primary mb-0.5"
+                  style={{ color: accentColor }}
+                >
+                  {ex.text}
+                </Text>
+                <Text className="text-sm italic" style={{ color: '#111111' }}>{ex.explanation}</Text>
+              </View>
+              <SpeakWordButton word={ex.speakText ?? extractSpeakableText(ex.text)} accentColor={accentColor} />
             </View>
           ))}
         </View>

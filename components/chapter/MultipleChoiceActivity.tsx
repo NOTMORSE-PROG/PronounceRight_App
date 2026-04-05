@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import SpeakWordButton from '@/components/ui/SpeakWordButton';
 
 export interface McqQuestion {
   prompt: string;
+  speakWord?: string;
   options: { label: string; value: string }[];
   correctValue: string;
 }
@@ -125,10 +127,13 @@ export default function MultipleChoiceActivity({
 
       {/* Prompt */}
       <View
-        className="rounded-xl p-4 mb-4"
+        className="rounded-xl p-4 mb-4 flex-row items-center justify-center gap-3"
         style={{ backgroundColor: accentColor + '0D' }}
       >
-        <Text className="text-base font-semibold text-text-primary text-center">
+        {current.speakWord && (
+          <SpeakWordButton word={current.speakWord} accentColor={accentColor} />
+        )}
+        <Text className="text-base font-semibold text-text-primary text-center flex-shrink">
           {current.prompt}
         </Text>
       </View>

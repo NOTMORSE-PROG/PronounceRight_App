@@ -9,9 +9,14 @@ import LessonCard from '@/components/chapter/LessonCard';
 import MultipleChoiceActivity, { McqQuestion } from '@/components/chapter/MultipleChoiceActivity';
 import PronunciationDrillActivity from '@/components/chapter/PronunciationDrillActivity';
 import MinimalPairActivity from '@/components/chapter/MinimalPairActivity';
+import MinimalPairReview from '@/components/chapter/MinimalPairReview';
 import SpeechRecordingActivity, { SpeechPrompt } from '@/components/chapter/SpeechRecordingActivity';
 import SequencingActivity from '@/components/chapter/SequencingActivity';
+import StressDrillActivity from '@/components/chapter/StressDrillActivity';
+import IntonationDrillActivity from '@/components/chapter/IntonationDrillActivity';
+import PickAndSpeakActivity from '@/components/chapter/PickAndSpeakActivity';
 import ChapterReflectionCard from '@/components/chapter/ChapterReflectionCard';
+import SpeakWordButton from '@/components/ui/SpeakWordButton';
 import { MODULES_DATA } from '@/types';
 import { getChapterContent } from '@/content';
 import { useProgressStore } from '@/stores/progress';
@@ -24,11 +29,14 @@ import type {
   Activity,
   StressMcqActivity,
   IntonationMcqActivity,
+  IntonationDrillActivity as IntonationDrillActivityType,
   VowelSoundItem,
 } from '@/types/content';
 
 const MODULES_WITH_IDS = MODULES_DATA.map((m, i) => ({ ...m, id: `m${i + 1}` }));
 const MODULE_COLORS = ['#2196F3', '#00BCD4', '#FF9800'];
+
+// SpeakWordButton imported from @/components/ui/SpeakWordButton
 
 // ─── Vowel Identification (inline, no separate file needed) ───────────────────
 
@@ -120,7 +128,8 @@ function VowelIdentificationInline({
                 backgroundColor: isCorrect ? '#10B98108' : isWrong ? '#EF444408' : '#F8FFFE',
               }}
             >
-              <View className="flex-1 mr-3">
+              <SpeakWordButton word={item.word} accentColor={accentColor} />
+              <View className="flex-1 mx-2">
                 <Text className="text-base font-semibold text-text-primary">{item.word}</Text>
                 <Text
                   className="text-xs text-text-muted mt-0.5"
@@ -194,6 +203,8 @@ function ActivityRenderer({
   whisperCtx,
   vadCtx,
   onComplete,
+  alreadyCompleted,
+  onAdvance,
 }: {
   activity: Activity;
   accentColor: string;
@@ -201,6 +212,8 @@ function ActivityRenderer({
   whisperCtx?: import('whisper.rn').WhisperContext;
   vadCtx?: import('whisper.rn').WhisperVadContext | null;
   onComplete: (id: string, score: number) => void;
+  alreadyCompleted: boolean;
+  onAdvance?: () => void;
 }) {
   switch (activity.type) {
     case 'identify_pronunciation':
@@ -265,6 +278,17 @@ function ActivityRenderer({
       );
 
     case 'minimal_pair_drill':
+      if (alreadyCompleted) {
+        return (
+          <MinimalPairReview
+            activityTitle={activity.title}
+            items={activity.items}
+            accentColor={accentColor}
+            studentId={studentId}
+            activityId={activity.id}
+          />
+        );
+      }
       return (
         <MinimalPairActivity
           activityTitle={activity.title}
@@ -281,11 +305,17 @@ function ActivityRenderer({
       );
 
     case 'stress_mcq': {
-      const questions: McqQuestion[] = (activity as StressMcqActivity).items.map((item) => ({
-        prompt: item.syllables.join(' · '),
-        options: item.syllables.map((s, i) => ({ label: s, value: String(i) })),
-        correctValue: String(item.correctIndex),
-      }));
+      const questions: McqQuestion[] = (activity as StressMcqActivity).items.map((item) => {
+        const cleanSyllables = item.syllables.map((s) =>
+          s.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim()
+        );
+        return {
+          prompt: cleanSyllables.join(' · '),
+          speakWord: cleanSyllables.join(''),
+          options: cleanSyllables.map((s, i) => ({ label: s, value: String(i) })),
+          correctValue: String(item.correctIndex),
+        };
+      });
       return (
         <MultipleChoiceActivity
           activityTitle={activity.title}
@@ -299,10 +329,10 @@ function ActivityRenderer({
 
     case 'stress_drill':
       return (
-        <PronunciationDrillActivity
+        <StressDrillActivity
           activityTitle={activity.title}
           direction={activity.direction}
-          words={activity.words.map((w) => ({ word: w }))}
+          words={activity.words}
           passThreshold={activity.passThreshold}
           accentColor={accentColor}
           studentId={studentId}
@@ -316,6 +346,7 @@ function ActivityRenderer({
     case 'intonation_mcq': {
       const questions: McqQuestion[] = (activity as IntonationMcqActivity).items.map((item) => ({
         prompt: item.sentence,
+        speakWord: item.sentence,
         options: [
           { label: 'Rising ↗', value: 'rising' },
           { label: 'Falling ↘', value: 'falling' },
@@ -333,33 +364,35 @@ function ActivityRenderer({
       );
     }
 
-    case 'intonation_drill':
+    case 'intonation_drill': {
+      const drillActivity = activity as IntonationDrillActivityType;
       return (
-        <PronunciationDrillActivity
-          activityTitle={activity.title}
-          direction={activity.direction}
-          words={activity.sentences.map((s) => ({ word: s }))}
-          passThreshold={activity.passThreshold}
+        <IntonationDrillActivity
+          activityTitle={drillActivity.title}
+          direction={drillActivity.direction}
+          sentences={drillActivity.sentences}
+          expectedIntonations={drillActivity.expectedIntonations}
+          passThreshold={drillActivity.passThreshold}
           accentColor={accentColor}
           studentId={studentId}
-          activityId={activity.id}
+          activityId={drillActivity.id}
           whisperCtx={whisperCtx}
           vadCtx={vadCtx}
-          onComplete={(score) => onComplete(activity.id, score)}
+          onComplete={(score) => onComplete(drillActivity.id, score)}
         />
       );
+    }
 
     case 'pick_and_speak':
       return (
-        <SpeechRecordingActivity
-          activityTitle={activity.title}
-          direction={activity.direction}
-          prompts={activity.cueCards.map((c, i) => ({ id: String(i), text: c, hidden: true }))}
-          sentenceCount={activity.sentenceCount}
+        <PickAndSpeakActivity
+          activity={activity}
           accentColor={accentColor}
           studentId={studentId}
-          activityId={activity.id}
-          onComplete={() => onComplete(activity.id, 100)}
+          whisperCtx={whisperCtx}
+          vadCtx={vadCtx}
+          onComplete={(score) => onComplete(activity.id, score)}
+          onAdvance={onAdvance}
         />
       );
 
@@ -371,7 +404,12 @@ function ActivityRenderer({
           passages={activity.passages}
           maxAudioPlays={activity.maxAudioPlays}
           accentColor={accentColor}
+          studentId={studentId}
+          activityId={activity.id}
+          whisperCtx={whisperCtx}
+          vadCtx={vadCtx}
           onComplete={(score) => onComplete(activity.id, score)}
+          onAdvance={onAdvance}
         />
       );
 
@@ -403,7 +441,7 @@ export default function ChapterScreen() {
   const nextChapter = module.chapters[chapterIndex + 1] ?? null;
 
   const content = getChapterContent(chapterId ?? '');
-  const sections = content?.sections ?? [];
+  const sections = useMemo(() => content?.sections ?? [], [content]);
   const hasContent = sections.length > 0;
 
   const studentId = useAuthStore((s) => s.user?.id);
@@ -467,15 +505,20 @@ export default function ChapterScreen() {
   // ─── Pagination state ────────────────────────────────────────────────────────
 
   // If chapter was previously completed, unlock all steps for free review
+  const alreadyCompleted = useMemo(
+    () => chapterProgress[chapterId ?? '']?.completed ?? false,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chapterProgress, chapterId],
+  );
+
   const initialStepCompleted = useMemo(() => {
-    const alreadyCompleted = chapterProgress[chapterId ?? '']?.completed ?? false;
     const map: Record<number, boolean> = {};
     if (alreadyCompleted) {
       sections.forEach((_, i) => { map[i] = true; });
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sections]);
+  }, [sections, alreadyCompleted]);
 
   // Restore last step position (completed chapters start at 0 for review)
   const initialStep = useMemo(() => {
@@ -597,7 +640,8 @@ export default function ChapterScreen() {
                       height: 8,
                       borderRadius: 4,
                       backgroundColor:
-                        i === currentStep ? color
+                        allDone ? '#10B981'
+                        : i === currentStep ? color
                         : stepCompleted[i] ? '#10B981'
                         : '#E2E8F0',
                     }}
@@ -623,6 +667,10 @@ export default function ChapterScreen() {
                     whisperCtx={whisperCtx}
                     vadCtx={vadCtx}
                     onComplete={handleStepActivityComplete}
+                    alreadyCompleted={alreadyCompleted}
+                    onAdvance={() => {
+                      if (currentStep < sections.length - 1) setCurrentStep((s) => s + 1);
+                    }}
                   />
                 )}
               </View>

@@ -25,12 +25,15 @@ jobs:
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           lfs: true
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Verify LFS files
         run: |
@@ -71,6 +74,9 @@ jobs:
       - name: Generate native project
         run: npx expo prebuild --clean --platform android
 
+      - name: Set Android SDK path
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+
       - name: Boost Gradle memory
         run: |
           echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" >> android/gradle.properties
@@ -106,29 +112,57 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew ${{ steps.gradle.outputs.command }} --no-daemon
+          ./gradlew ${{ steps.gradle.outputs.command }} --no-daemon -PreactNativeArchitectures=arm64-v8a
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Extract git metadata
+        id: meta
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          BRANCH_SLUG=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9]/-/g')
+          SHORT_SHA=$(echo "${{ github.event.workflow_run.head_sha || github.sha }}" | cut -c1-7)
+          TIMESTAMP=$(date +%Y%m%d-%H%M)
+          COMMIT_MSG=$(git log -1 --format="%s")
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'release' }}"
+          APK_NAME="SpeakRight-${BUILD_TYPE}-${BRANCH_SLUG}-${SHORT_SHA}-${TIMESTAMP}.apk"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "branch_slug=$BRANCH_SLUG" >> $GITHUB_OUTPUT
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
+          echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
+
+      - name: Rename APK
+        run: |
+          APK_PATH="${{ steps.gradle.outputs.apk_path }}"
+          cp "$APK_PATH" ${{ steps.meta.outputs.apk_name }}
+
+      - name: Delete existing release and tag
+        run: gh release delete latest --cleanup-tag --yes || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: ${{ steps.gradle.outputs.apk_name }}
-          path: ${{ steps.gradle.outputs.apk_path }}
-          retention-days: 30
+          tag_name: latest
+          name: "SpeakRight — Latest Build"
+          body: |
+            **Branch:** `${{ steps.meta.outputs.branch }}`
+            **Commit:** `${{ steps.meta.outputs.short_sha }}`
+            **Message:** ${{ steps.meta.outputs.commit_msg }}
+            **Build type:** `${{ steps.meta.outputs.build_type }}`
+            **Built:** ${{ steps.meta.outputs.timestamp }}
+          files: ${{ steps.meta.outputs.apk_name }}
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build summary
         if: always()
         run: |
-          BUILD_TYPE="${{ github.event.inputs.build_type || 'release' }}"
-          echo "## Android APK Build — \`$BUILD_TYPE\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ -f "${{ steps.gradle.outputs.apk_path }}" ]; then
-            APK_SIZE=$(stat --printf="%s" "${{ steps.gradle.outputs.apk_path }}")
-            echo "**Status:** Built successfully" >> "$GITHUB_STEP_SUMMARY"
-            echo "**Size:** $((APK_SIZE / 1048576))MB" >> "$GITHUB_STEP_SUMMARY"
-            echo "**Artifact:** \`${{ steps.gradle.outputs.apk_name }}\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Download the APK from the **Artifacts** section above." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "**Status:** Build failed" >> "$GITHUB_STEP_SUMMARY"
-            echo "Check the build logs for details." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "## SpeakRight APK Build" >> $GITHUB_STEP_SUMMARY
+          echo "- **APK:** \`${{ steps.meta.outputs.apk_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ steps.meta.outputs.branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ steps.meta.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build type:** \`${{ steps.meta.outputs.build_type }}\`" >> $GITHUB_STEP_SUMMARY

@@ -4,7 +4,7 @@ import type { ChapterProgress } from '@/types';
 /** Chapter IDs that contain sentence-level activities */
 const SENTENCE_CHAPTERS = new Set(['m1c1', 'm2c2', 'm2c3']);
 
-const MOD1_CHAPTERS = ['m1c1', 'm1c2', 'm1c3'];
+const MOD1_CHAPTERS = ['m1c1', 'm1c2'];
 const MOD2_CHAPTERS = ['m2c1', 'm2c2', 'm2c3'];
 const ALL_CHAPTER_IDS = MODULES_DATA.flatMap((m) =>
   m.chapters.map((c) => c.id),

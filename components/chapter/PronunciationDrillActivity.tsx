@@ -9,6 +9,7 @@ import type { AssessmentResult } from '@/lib/pronunciation-engine';
 import { keepRecording, loadRecordings, retryRecording } from '@/lib/recordings-service';
 import { saveAssessment, getAssessments, deleteAssessment } from '@/lib/db';
 import AssessmentResultCard from './AssessmentResultCard';
+import SpeakWordButton from '@/components/ui/SpeakWordButton';
 
 export interface DrillWord {
   word: string;
@@ -65,11 +66,15 @@ export default function PronunciationDrillActivity({
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
-  const keptScoresRef = useRef<number[]>([]);
+  const keptScoresRef = useRef<Record<number, number>>({});
+  const justRestoredRef = useRef(true);
 
   useEffect(() => {
     Audio.requestPermissionsAsync().then(({ granted }) => setPermissionGranted(granted));
-    return () => { soundRef.current?.unloadAsync(); };
+    return () => {
+      soundRef.current?.unloadAsync();
+      recordingRef.current?.stopAndUnloadAsync();
+    };
   }, []);
 
   // Restore saved recordings + assessments on mount
@@ -90,23 +95,25 @@ export default function PronunciationDrillActivity({
         const restored: Record<number, AssessmentResult> = {};
         for (const row of assessmentRows) {
           restored[row.prompt_index] = parseAssessmentRow(row);
-          keptScoresRef.current.push(row.phonics_score);
+          keptScoresRef.current[row.prompt_index] = row.phonics_score;
         }
         setAssessments(restored);
       }
       setLoadingRecordings(false);
-    }).catch(() => setLoadingRecordings(false));
+      // Allow completion detection on the next tick (after React processes restored state)
+      setTimeout(() => { justRestoredRef.current = false; }, 0);
+    }).catch(() => { setLoadingRecordings(false); justRestoredRef.current = false; });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Complete when all words are kept
+  // Complete when all words are kept (skip during initial restoration)
   useEffect(() => {
-    if (loadingRecordings) return;
+    if (loadingRecordings || justRestoredRef.current) return;
     const allKept = statuses.every((s) => s === 'kept');
     if (allKept && !completed) {
       setCompleted(true);
       if (isAssessed) {
-        const scores = keptScoresRef.current;
+        const scores = Object.values(keptScoresRef.current);
         const avg = scores.length > 0
           ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
           : 100;
@@ -139,8 +146,7 @@ export default function PronunciationDrillActivity({
     } else if (status === 'recording') {
       try {
         const uri = recordingRef.current?.getURI() ?? null;
-        await recordingRef.current?.stopAndUnloadAsync();
-        recordingRef.current = null;
+        try { await recordingRef.current?.stopAndUnloadAsync(); } finally { recordingRef.current = null; }
 
         if (!uri) { setStatuses((prev) => prev.map((s, i) => (i === index ? 'idle' : s))); return; }
 
@@ -168,19 +174,18 @@ export default function PronunciationDrillActivity({
             const refWord = cleanReferenceWord(words[index]!.word);
             const result = await assessText(whisperCtx!, savedUri, refWord, vadCtx);
 
-            if (result.noSpeechDetected || result.hallucination) {
-              // Clean up recording and reset
+            if (result.noSpeechDetected) {
+              // Truly no speech — clean up recording and reset
               if (studentId && activityId) {
                 await retryRecording(studentId, activityId, index).catch(() => {});
               }
               setRecordingUris((prev) => { const next = { ...prev }; delete next[index]; return next; });
-              setNoSpeechMsgs((prev) => ({ ...prev, [index]: result.noSpeechDetected }));
-              setHallucinationMsgs((prev) => ({ ...prev, [index]: result.hallucination }));
+              setNoSpeechMsgs((prev) => ({ ...prev, [index]: true }));
               setStatuses((prev) => prev.map((s, i) => (i === index ? 'idle' : s)));
               return;
             }
 
-            // Save assessment to DB
+            // Save assessment to DB (even low scores — user can see what was heard)
             if (studentId && activityId) {
               await saveAssessment({
                 id: `${studentId}_${activityId}_${index}`,
@@ -214,7 +219,7 @@ export default function PronunciationDrillActivity({
   function handleKeep(index: number) {
     const assessment = assessments[index];
     if (assessment) {
-      keptScoresRef.current.push(assessment.phonicsScore);
+      keptScoresRef.current[index] = assessment.phonicsScore;
     }
     setStatuses((prev) => prev.map((s, i) => (i === index ? 'kept' : s)));
   }
@@ -229,6 +234,7 @@ export default function PronunciationDrillActivity({
       await retryRecording(studentId, activityId, index).catch(() => {});
       await deleteAssessment(studentId, activityId, index).catch(() => {});
     }
+    delete keptScoresRef.current[index];
     setRecordingUris((prev) => { const next = { ...prev }; delete next[index]; return next; });
     setAssessments((prev) => { const next = { ...prev }; delete next[index]; return next; });
     setNoSpeechMsgs((prev) => ({ ...prev, [index]: false }));
@@ -306,7 +312,10 @@ export default function PronunciationDrillActivity({
               {/* Word + IPA row */}
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 mr-3">
-                  <Text className="text-base font-semibold text-text-primary">{item.word}</Text>
+                  <View className="flex-row items-center gap-2">
+                    <Text className="text-base font-semibold text-text-primary">{item.word}</Text>
+                    <SpeakWordButton word={cleanReferenceWord(item.word)} accentColor={accentColor} />
+                  </View>
                   {item.ipa ? (
                     <Text
                       className="text-xs text-text-muted mt-0.5"
@@ -466,8 +475,8 @@ export default function PronunciationDrillActivity({
           <Ionicons name="checkmark-circle" size={18} color="#10B981" />
           <Text className="text-sm font-semibold text-green-700">
             {isAssessed
-              ? `All words completed! Average: ${keptScoresRef.current.length > 0
-                  ? Math.round(keptScoresRef.current.reduce((a, b) => a + b, 0) / keptScoresRef.current.length)
+              ? `All words completed! Average: ${Object.keys(keptScoresRef.current).length > 0
+                  ? Math.round(Object.values(keptScoresRef.current).reduce((a, b) => a + b, 0) / Object.keys(keptScoresRef.current).length)
                   : 100}%`
               : 'All words recorded and saved!'}
           </Text>
@@ -494,18 +503,23 @@ function parseAssessmentRow(row: import('@/lib/db').AssessmentRow): AssessmentRe
   const errors = JSON.parse(row.errors) as AssessmentResult['errors'];
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { getBand, ASSESSMENT_CONFIG } = require('@/lib/assessment-config') as typeof import('@/lib/assessment-config');
+  const { accuracy: wa, fluency: wf, completeness: wc } = ASSESSMENT_CONFIG.scoreWeights;
+  // Back-calculate accuracy: phonics = acc*wa + 100*wf + 100*wc (word mode: fluency=100, completeness=100)
+  const fixedContribution = 100 * wf + 100 * wc;
+  const accuracyScore = Math.min(100, Math.max(0, Math.round((row.phonics_score - fixedContribution) / wa)));
   return {
     mode: 'word',
     transcript: row.transcript,
     cleanedTranscript: '',
     phonicsScore: row.phonics_score,
-    accuracyScore: row.phonics_score,
-    fluencyScore: 90,
+    accuracyScore,
+    fluencyScore: 100,
     completenessScore: 100,
     prosodyScore: 100,
     errors,
     band: getBand(row.phonics_score),
     passed: row.phonics_score >= ASSESSMENT_CONFIG.passThreshold,
+    recognitionPass: false,
     noSpeechDetected: false,
     hallucination: false,
     confusedWithPairWord: false,

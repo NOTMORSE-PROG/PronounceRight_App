@@ -8,7 +8,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx --max-warnings 0",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "postinstall": "npx patch-package"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -32,11 +33,14 @@
     "expo-status-bar": "~55.0.4",
     "lottie-react-native": "^7.3.6",
     "nativewind": "^4.2.3",
+    "pitchfinder": "^2.3.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.2",
+    "react-native-audio-api": "^0.11.7",
     "react-native-gesture-handler": "~2.30.0",
     "react-native-reanimated": "^4.2.1",
+    "react-native-reanimated-dnd": "^2.0.0",
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
     "react-native-svg": "^15.15.4",
@@ -50,6 +54,7 @@
     "babel-preset-expo": "~55.0.12",
     "eslint": "^8.57.0",
     "eslint-config-expo": "~9.2.0",
+    "patch-package": "^8.0.1",
     "typescript": "~5.9.2"
   },
   "private": true

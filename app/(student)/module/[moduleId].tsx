@@ -13,7 +13,7 @@ const MODULE_COLORS = ['#2196F3', '#00BCD4', '#FF9800'];
 
 export default function ModuleDetailScreen() {
   const { moduleId } = useLocalSearchParams<{ moduleId: string }>();
-  const { chapterProgress, getModuleCompletion } = useProgressStore();
+  const { chapterProgress, getModuleCompletion, devUnlockAll } = useProgressStore();
 
   const module = MODULES_WITH_IDS.find((m) => m.id === moduleId) ?? MODULES_WITH_IDS[0]!;
   const moduleIndex = MODULES_WITH_IDS.findIndex((m) => m.id === moduleId);
@@ -67,7 +67,7 @@ export default function ModuleDetailScreen() {
             const prevCompleted =
               index === 0 ||
               (chapterProgress[module.chapters[index - 1]!.id]?.completed ?? false);
-            const isLocked = !prevCompleted && !isCompleted;
+            const isLocked = !devUnlockAll && !prevCompleted && !isCompleted;
             const isCurrent = index === currentChapterIndex;
 
             return (

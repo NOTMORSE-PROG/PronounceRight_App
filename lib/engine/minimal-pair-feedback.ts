@@ -11,6 +11,13 @@ export interface MinimalPairFeedback {
   encouragement: string;
 }
 
+/** Shorten an articulatory tip to ~first sentence for inline use. */
+function shortTip(tip: string | null): string {
+  if (!tip) return '';
+  const dot = tip.indexOf('.');
+  return dot > 0 ? tip.slice(0, dot + 1) : tip;
+}
+
 export function generateMinimalPairFeedback(
   targetWord: string,
   pairWord: string,
@@ -22,65 +29,81 @@ export function generateMinimalPairFeedback(
 ): MinimalPairFeedback {
   // Find the key phoneme contrast between the two words
   const contrasts = getMinimalPairContrast(targetWord, pairWord);
-  const primary = contrasts[0]; // the first (usually main) phoneme difference
+  const primary = contrasts[0];
 
   const targetLabel = primary ? (PHONEME_LABELS[primary.phonemeA] ?? primary.phonemeA) : '';
   const pairLabel = primary ? (PHONEME_LABELS[primary.phonemeB] ?? primary.phonemeB) : '';
+  const tipA = primary ? getArticulatoryTip(primary.phonemeA) : null;
+  const tipB = primary ? getArticulatoryTip(primary.phonemeB) : null;
 
-  // ── Score explanation ─────────────────────────────────────────────────────
+  // ── Score explanation — references the actual phoneme difference ───────────
 
   let scoreExplanation: string;
   if (hallucination) {
     scoreExplanation = 'What you said didn\'t match either word clearly. Make sure to speak directly into the microphone.';
   } else if (passed) {
-    scoreExplanation = `You scored ${score}% — your pronunciation of "${targetWord}" was clear and accurate.`;
+    scoreExplanation = primary
+      ? `You scored ${score}% — your "${targetWord}" clearly used the correct ${targetLabel}.`
+      : `You scored ${score}% — your pronunciation of "${targetWord}" was clear and accurate.`;
   } else if (confusedWithPairWord) {
     scoreExplanation = primary
-      ? `Your score was ${score}% because it sounded like "${pairWord}" instead of "${targetWord}". The key difference is the ${targetLabel}.`
-      : `Your score was ${score}% because it sounded like "${pairWord}" instead of "${targetWord}".`;
+      ? `Your score was ${score}% — you produced the ${pairLabel} instead of the ${targetLabel}. "${targetWord}" needs the ${targetLabel}.`
+      : `Your score was ${score}% — it sounded like "${pairWord}" instead of "${targetWord}".`;
   } else {
     scoreExplanation = primary
-      ? `Your score was ${score}%. The ${targetLabel} in "${targetWord}" needs adjustment.`
-      : `Your score was ${score}%. The pronunciation of "${targetWord}" needs more practice.`;
+      ? `Your score was ${score}% — the ${targetLabel} in "${targetWord}" wasn't quite right.`
+      : `Your score was ${score}% — try saying "${targetWord}" more slowly and clearly.`;
   }
 
-  // ── Contrast explanation ──────────────────────────────────────────────────
+  // ── Contrast explanation — describes mouth movement differences ────────────
 
   let contrastExplanation: string;
-  if (primary) {
-    contrastExplanation = `"${targetWord}" uses the ${targetLabel} while "${pairWord}" uses the ${pairLabel}. This sound is the key difference between the two words.`;
+  if (primary && tipA && tipB) {
+    // Compose both articulatory tips inline for a rich explanation
+    contrastExplanation = `"${targetWord}" uses the ${targetLabel}: ${shortTip(tipA)} "${pairWord}" uses the ${pairLabel}: ${shortTip(tipB)}`;
+  } else if (primary) {
+    contrastExplanation = `"${targetWord}" uses the ${targetLabel} while "${pairWord}" uses the ${pairLabel}. This sound difference is key — feel how your mouth position changes between them.`;
   } else {
-    contrastExplanation = `"${targetWord}" and "${pairWord}" differ in a subtle way. Listen carefully to both.`;
+    contrastExplanation = `"${targetWord}" and "${pairWord}" have a subtle sound difference. Say each word slowly and feel how your mouth position changes.`;
   }
 
-  // ── Articulatory tip ──────────────────────────────────────────────────────
+  // ── Articulatory tip — concrete mouth/tongue/lip instruction ──────────────
 
   let articulatoryTip: string;
-  if (primary) {
-    const tip = getArticulatoryTip(primary.phonemeA);
-    articulatoryTip = tip
-      ? `For the ${targetLabel}: ${tip}`
-      : `Focus on producing the ${targetLabel} distinctly.`;
+  if (primary && tipA) {
+    articulatoryTip = `To say "${targetWord}" correctly: ${tipA}`;
+  } else if (primary) {
+    articulatoryTip = primary.isVowel
+      ? `The vowel in "${targetWord}" is the ${targetLabel}. Open your mouth to the right position and hold the sound steady.`
+      : `The ${targetLabel} in "${targetWord}" is a consonant. Focus on where your tongue and lips touch as you say it.`;
   } else {
-    articulatoryTip = 'Listen carefully to the target word and try to match each sound exactly.';
+    articulatoryTip = `Say "${targetWord}" slowly — exaggerate each sound and focus on your tongue and lip position.`;
   }
 
-  // ── Encouragement (score-banded) ──────────────────────────────────────────
+  // ── Encouragement — score-banded with phoneme context ─────────────────────
 
   let encouragement: string;
   if (passed) {
-    encouragement = `Great job! You clearly distinguished "${targetWord}" from "${pairWord}".`;
-  } else if (score < 30) {
     encouragement = primary
-      ? `Don't worry — this is a tricky contrast. Try saying "${targetWord}" slowly, focusing on the ${targetLabel}.`
-      : `Don't worry — try saying "${targetWord}" slowly and clearly.`;
+      ? `Great job! You clearly produced "${targetWord}" with the correct ${targetLabel}.`
+      : `Great job! You clearly distinguished "${targetWord}" from "${pairWord}".`;
+  } else if (score === 0) {
+    encouragement = `That recording didn't match "${targetWord}". Speak clearly and close to the microphone, then try again.`;
+  } else if (confusedWithPairWord && score < 30) {
+    encouragement = primary && tipA
+      ? `It sounds like you said "${pairWord}" instead. To switch to "${targetWord}", change your ${targetLabel}: ${shortTip(tipA)}`
+      : `It sounds like you said "${pairWord}" instead. Try to say "${targetWord}" more carefully, focusing on the first different sound.`;
+  } else if (score < 30) {
+    encouragement = primary && tipA
+      ? `This is a tricky sound. Try saying "${targetWord}" very slowly: ${shortTip(tipA)}`
+      : `Don't worry — try saying "${targetWord}" slowly and clearly, one sound at a time.`;
   } else if (score < 60) {
     encouragement = primary
-      ? `You're getting closer! Focus on making the ${targetLabel} distinct from the ${pairLabel}.`
-      : `You're getting closer! Listen to "${targetWord}" again and try to match the sounds.`;
+      ? `You're getting closer! Focus on the ${targetLabel} — ${shortTip(tipA) || 'say it slowly and feel the difference'}.`
+      : `You're getting closer! Try saying "${targetWord}" more slowly, focusing on each sound.`;
   } else {
     encouragement = primary
-      ? `Almost there! Just a small adjustment to the ${targetLabel} will get you to 90%.`
+      ? `Almost there! Just a small adjustment to the ${targetLabel} and you'll pass.`
       : `Almost there! A small adjustment to your pronunciation will get you to 90%.`;
   }
 

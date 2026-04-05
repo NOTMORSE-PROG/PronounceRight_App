@@ -178,16 +178,6 @@ export const MODULES_DATA: Omit<Module, 'id'>[] = [
         activityDescription:
           'Classify words by vowel type, practice consonant sounds aloud, then complete minimal pair drills with 90% accuracy.',
       },
-      {
-        id: 'm1c3',
-        moduleId: 'm1',
-        number: 3,
-        title: 'Common Pronunciation Challenges',
-        skillFocus: 'Silent Letters, Blends, Endings',
-        activityName: 'Error Correction Task',
-        activityDescription:
-          'Listen to incorrectly pronounced words and correct them. Practice words with silent letters and different endings.',
-      },
     ],
   },
   {

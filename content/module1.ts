@@ -80,19 +80,23 @@ const m1c2: ChapterContent = {
       data: {
         id: 'm1c2-l1',
         title: 'What is a Phoneme?',
-        paragraphs: [],
+        paragraphs: [
+          'A phoneme is the smallest unit of sound. English has 44 sounds but only 26 letters, so pronunciation must be learned by ear — not just read.',
+        ],
         examples: [
           {
-            text: '🔤 Phonemes are the smallest units of sound',
-            explanation: '"cat" /kæt/ has 3 phonemes — /k/, /æ/, /t/ — even though it has 3 letters.',
+            text: '🔤 cat — /kæt/',
+            explanation: 'Three phonemes: /k/, /æ/, /t/. Change any one and you get a different word — "bat," "cut," "cap."',
+            speakText: 'cat',
           },
           {
-            text: '📝 One sound, many spellings',
-            explanation: 'The /f/ sound appears in "fish", "phone", and "rough" — different letters, same phoneme.',
+            text: '📝 fish, phone, rough',
+            explanation: 'All three have the /f/ sound but different spellings. This is why spelling alone cannot teach pronunciation.',
+            speakText: 'fish, phone, rough',
           },
           {
-            text: '🔢 44 phonemes, 26 letters',
-            explanation: "English has 44 distinct sounds but only 26 letters — that's why pronunciation must be learned, not just read.",
+            text: '🔢 44 sounds, 26 letters',
+            explanation: 'English has almost twice as many sounds as letters — that is why some sounds share letters or use letter combinations.',
           },
         ],
       },
@@ -102,19 +106,29 @@ const m1c2: ChapterContent = {
       data: {
         id: 'm1c2-l2',
         title: 'Vowel Sounds',
-        paragraphs: [],
+        paragraphs: [
+          'Vowels (A, E, I, O, U) flow freely — airflow is never blocked. Each vowel has a short sound (quick, clipped) and a long sound (held longer, "says its name").',
+        ],
         examples: [
           {
-            text: '🔵 Short Vowels — quick, crisp sounds',
-            explanation: 'cat /æ/, bed /ɛ/, sit /ɪ/, dog /ɒ/, sun /ʌ/ — each vowel is short and clipped.',
+            text: '🅰️ Basic vowels — at, ed, it, ox, up',
+            explanation: 'These are the pure vowel sounds. Notice how your mouth stays open and relaxed for each one.',
+            speakText: 'at, ed, it, ox, up',
           },
           {
-            text: '🔴 Long Vowels — held sounds',
-            explanation: 'sheep /iː/, name /eɪ/, boat /oʊ/, food /uː/ — the vowel sound is stretched and often spelled with two letters.',
+            text: '🔵 Short vowels — cat, led, big, hop, rug',
+            explanation: 'Quick, clipped sounds. The vowel is short and sharp — say "cat," feel how brief the /æ/ is.',
+            speakText: 'cat, led, big, hop, rug',
           },
           {
-            text: '⚠️ Why It Matters',
-            explanation: 'Confusing "ship" /ɪ/ and "sheep" /iː/ changes the word entirely — vowel length is meaningful in English.',
+            text: '🔴 Long vowels — paper, be, item, cold, unit',
+            explanation: 'Held, stretched sounds that "say the letter\'s name." Say "paper" — the A says /eɪ/. Say "cold" — the O says /oʊ/.',
+            speakText: 'paper, be, item, cold, unit',
+          },
+          {
+            text: '⚠️ ship vs. sheep',
+            explanation: 'One vowel length difference, two different words. "Ship" has a short /ɪ/, "sheep" holds the /iː/. Getting this wrong changes what you mean.',
+            speakText: 'ship, sheep',
           },
         ],
       },
@@ -147,19 +161,29 @@ const m1c2: ChapterContent = {
       data: {
         id: 'm1c2-l3',
         title: 'Consonant Sounds',
-        paragraphs: [],
+        paragraphs: [
+          'Consonants are produced when airflow is blocked or restricted by your tongue, teeth, or lips. Stop sounds burst air (/p/, /b/, /t/, /d/, /k/, /g/); fricatives squeeze air through a gap (/f/, /v/, /s/, /z/, /sh/).',
+        ],
         examples: [
           {
-            text: '💥 Stop Sounds — air bursts',
-            explanation: 'p, b, t, d, k, g — air is briefly blocked then released. Try: "pen", "bat", "dog".',
+            text: '💥 Stop sounds — pen, bat, top, dog, cat',
+            explanation: 'Feel how your lips or tongue briefly blocks the air then releases it — the sound "pops" out.',
+            speakText: 'pen, bat, top, dog, cat',
           },
           {
-            text: '🌬️ Fricative Sounds — air flows',
-            explanation: 'f, v, s, z, sh — air squeezes through a narrow gap. Try: "fan", "vine", "ship".',
+            text: '🌬️ Fricative sounds — fan, vine, ship, zebra',
+            explanation: 'Air flows continuously through a narrow gap — your mouth never fully closes. Notice the hissing or buzzing quality.',
+            speakText: 'fan, vine, ship, zebra',
           },
           {
-            text: '🎯 Filipino English Tip',
-            explanation: 'Final consonants like "ct" in "fact" are often dropped — making "fat" and "fact" sound the same. Pronounce every consonant.',
+            text: '🎯 Tip: fact vs. fat',
+            explanation: 'Filipino speakers sometimes drop the final /k/ in clusters like "ct," making "fact" sound like "fat." Hold the /k/ briefly before releasing the /t/.',
+            speakText: 'fact, fat',
+          },
+          {
+            text: '🎯 Tip: five vs. pibe',
+            explanation: '/f/ and /v/ are often replaced with /p/ and /b/ in Filipino English. To produce /f/, gently bite your lower lip and blow — don\'t press your lips fully together.',
+            speakText: 'five, vine',
           },
         ],
       },
@@ -218,115 +242,6 @@ const m1c2: ChapterContent = {
   ],
 };
 
-// ─── m1c3: Common Pronunciation Challenges ───────────────────────────────────
-
-const m1c3: ChapterContent = {
-  chapterId: 'm1c3',
-  sections: [
-    {
-      kind: 'lesson',
-      data: {
-        id: 'm1c3-l1',
-        title: 'Lesson 1 — Silent Letters',
-        paragraphs: [
-          'In English, some letters are written in a word but not pronounced when the word is spoken. These are called silent letters. Knowing which letters are silent helps you pronounce words correctly and avoid common errors.',
-          'Silent K — When a word begins with "kn," the K is silent: knife /naɪf/, knock /nɒk/, know /noʊ/, knee /niː/, kneel /niːl/.',
-          'Silent W — When a word begins with "wr," the W is silent: write /raɪt/, wrap /ræp/, wrist /rɪst/, wrong /rɒŋ/, wreck /rɛk/.',
-          'Silent B — The B is often silent after M or before T at the end of a word: climb /klaɪm/, thumb /θʌm/, comb /koʊm/, lamb /læm/, debt /dɛt/.',
-          'Silent GH — In many words, "gh" is completely silent: night /naɪt/, light /laɪt/, right /raɪt/, high /haɪ/, daughter /ˈdɔːtər/.',
-        ],
-        examples: [
-          { text: 'knife → /naɪf/ (the K is silent)', explanation: 'Do not pronounce the K. Say "nyfe."' },
-          { text: 'climb → /klaɪm/ (the B is silent)', explanation: 'Do not pronounce the B at the end. Say "clime."' },
-          { text: 'night → /naɪt/ (gh is silent)', explanation: 'The "ght" combination — only the T is sounded. Say "nite."' },
-        ],
-      },
-    },
-    {
-      kind: 'lesson',
-      data: {
-        id: 'm1c3-l2',
-        title: 'Lesson 2 — Consonant Blends',
-        paragraphs: [
-          'A consonant blend occurs when two or more consonants appear together in a word and each consonant keeps its own sound. Unlike digraphs (where two letters make one new sound), every letter in a blend can be heard.',
-          'Initial blends — These appear at the beginning of a word. Common two-letter blends include: bl (blend, black), cl (class, clock), fl (flag, fly), pl (play, plan), sl (sleep, slow), br (bring, brown), cr (cry, cross), dr (dream, drive), fr (friend, free), gr (green, grow), pr (price, print), tr (tree, trust), st (stop, star), sp (speak, spell), sn (snow, snap), sw (swim, sweet).',
-          'Three-letter blends — Some words begin with three consonants. Common examples: str (street, strong, stretch), spr (spring, spray, spread), spl (split, splash), scr (screen, scratch), thr (three, throw, through).',
-          'Blends also appear at the end of words: -nd (hand, sand), -nt (want, print), -st (fast, most), -lk (walk, talk), -mp (jump, camp).',
-        ],
-        examples: [
-          { text: 'street → /striːt/', explanation: 'Three-letter blend "str" — say S, T, and R clearly before the vowel.' },
-          { text: 'spring → /sprɪŋ/', explanation: 'Three-letter blend "spr" — each consonant is heard: S-P-R.' },
-          { text: 'blend → /blɛnd/', explanation: 'Initial blend "bl" and final blend "nd" — all four consonants are sounded.' },
-        ],
-      },
-    },
-    {
-      kind: 'lesson',
-      data: {
-        id: 'm1c3-l3',
-        title: 'Lesson 3 — Word Endings',
-        paragraphs: [
-          'The way a word ending is pronounced often depends on the sound that comes before it. Three of the most important endings in English are -ed, -s/-es, and -tion.',
-          'The -ed ending (past tense) has three pronunciations: /t/ after voiceless consonants — walked /wɔːkt/, stopped /stɒpt/, watched /wɒtʃt/; /d/ after voiced consonants and vowels — jogged /dʒɒgd/, loved /lʌvd/, played /pleɪd/; /ɪd/ after the sounds /t/ or /d/ — wanted /ˈwɒntɪd/, needed /ˈniːdɪd/, started /ˈstɑːtɪd/.',
-          'The -s/-es ending (plurals and third-person verbs) has three pronunciations: /s/ after voiceless consonants — cats /kæts/, books /bʊks/, stops /stɒps/; /z/ after voiced consonants and vowels — dogs /dɒgz/, chairs /tʃɛrz/, plays /pleɪz/; /ɪz/ after sibilant sounds (s, z, sh, ch, j) — dishes /ˈdɪʃɪz/, churches /ˈtʃɜːtʃɪz/, buzzes /ˈbʌzɪz/.',
-          'The -tion ending is always pronounced /ʃən/: nation /ˈneɪʃən/, station /ˈsteɪʃən/, education /ˌɛdjʊˈkeɪʃən/, pronunciation /prəˌnʌnsɪˈeɪʃən/, communication /kəˌmjuːnɪˈkeɪʃən/.',
-        ],
-        examples: [
-          { text: 'walked → /wɔːkt/ (-ed = /t/)', explanation: '"Walk" ends in a voiceless /k/, so -ed is pronounced /t/.' },
-          { text: 'jogged → /dʒɒgd/ (-ed = /d/)', explanation: '"Jog" ends in a voiced /g/, so -ed is pronounced /d/.' },
-          { text: 'nation → /ˈneɪʃən/ (-tion = /ʃən/)', explanation: 'The -tion suffix always sounds like "shun."' },
-        ],
-      },
-    },
-    {
-      kind: 'activity',
-      data: {
-        id: 'm1c3-a',
-        type: 'consonant_drill',
-        title: 'Activity A — Silent Letter Drill',
-        direction:
-          'Say each word aloud. Pay close attention to the silent letters — do not pronounce them. Focus on the correct IPA pronunciation shown.',
-        passThreshold: 0,
-        items: [
-          { kind: 'consonant_drill', word: 'knife',  ipa: '/naɪf/'    },
-          { kind: 'consonant_drill', word: 'knock',  ipa: '/nɒk/'     },
-          { kind: 'consonant_drill', word: 'write',  ipa: '/raɪt/'    },
-          { kind: 'consonant_drill', word: 'wrap',   ipa: '/ræp/'     },
-          { kind: 'consonant_drill', word: 'climb',  ipa: '/klaɪm/'   },
-          { kind: 'consonant_drill', word: 'thumb',  ipa: '/θʌm/'     },
-          { kind: 'consonant_drill', word: 'night',  ipa: '/naɪt/'    },
-          { kind: 'consonant_drill', word: 'high',   ipa: '/haɪ/'     },
-          { kind: 'consonant_drill', word: 'comb',   ipa: '/koʊm/'    },
-          { kind: 'consonant_drill', word: 'wrong',  ipa: '/rɒŋ/'     },
-        ],
-      },
-    },
-    {
-      kind: 'activity',
-      data: {
-        id: 'm1c3-b',
-        type: 'identify_pronunciation',
-        title: 'Activity B — Error Correction Task',
-        direction:
-          'Listen carefully as each word is pronounced. Decide whether the pronunciation is correct or incorrect. Say the word aloud using the correct pronunciation. Pay special attention to silent letters, consonant blends, and word endings.',
-        passThreshold: 0,
-        items: [
-          { kind: 'identify_pronunciation', word: 'knight'    },
-          { kind: 'identify_pronunciation', word: 'wrist'     },
-          { kind: 'identify_pronunciation', word: 'lamb'      },
-          { kind: 'identify_pronunciation', word: 'light'     },
-          { kind: 'identify_pronunciation', word: 'blend'     },
-          { kind: 'identify_pronunciation', word: 'street'    },
-          { kind: 'identify_pronunciation', word: 'walked'    },
-          { kind: 'identify_pronunciation', word: 'jogged'    },
-          { kind: 'identify_pronunciation', word: 'nation'    },
-          { kind: 'identify_pronunciation', word: 'dishes'    },
-        ],
-      },
-    },
-  ],
-};
-
 // ─── Export ───────────────────────────────────────────────────────────────────
 
-export const module1Content: ChapterContent[] = [m1c1, m1c2, m1c3];
+export const module1Content: ChapterContent[] = [m1c1, m1c2];

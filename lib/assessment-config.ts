@@ -10,9 +10,9 @@ export const ASSESSMENT_CONFIG = {
 
   scoreBands: [
     { min: 90, label: 'excellent',   color: '#10B981', message: 'Great pronunciation!' },
-    { min: 61, label: 'approaching', color: '#84CC16', message: 'Approaching acceptable — minor adjustments needed' },
-    { min: 31, label: 'mid',         color: '#F97316', message: 'Improvement present — more practice needed' },
-    { min: 0,  label: 'low',         color: '#991B1B', message: 'Significant work needed on this pronunciation' },
+    { min: 61, label: 'approaching', color: '#84CC16', message: 'Almost there — small adjustments needed' },
+    { min: 31, label: 'mid',         color: '#F97316', message: 'Getting better — keep practicing the sounds' },
+    { min: 0,  label: 'low',         color: '#991B1B', message: 'Try again — say it slowly, one sound at a time' },
   ],
 
   errorThresholds: {
@@ -32,14 +32,30 @@ export const ASSESSMENT_CONFIG = {
   },
 
   hallucination: {
-    bothWordsThreshold: 20,  // if phonemeAccuracyScore < this for BOTH pair words → hallucination
-    retryThreshold:     25,  // if score < this for target → retry once
-    retryTemperature:   0.1, // slight randomness on retry to break hallucination loop
-    wordModeThreshold:  20,  // word-mode: if best-word score < this vs reference → treat as hallucination
+    bothWordsThreshold: 20,  // reserved for future use
+    retryThreshold:     25,  // reserved for future use
+    retryTemperature:   0.1, // reserved for future use
   },
 
   engineTuning: {
-    dtwScaleFactor: 4,   // Phase 2 pitch DTW multiplier
+    dtwScaleFactor: 4,      // Phase 2 pitch DTW multiplier
+    confidenceCeiling: 0.7, // avgProb >= this maps to 100% accuracy
+    minQualityFloor: 0.5,   // correct word never scores below 50% accuracy
+  },
+
+  subScoreDescriptions: {
+    accuracy:     'How closely your sounds match the correct pronunciation',
+    fluency:      'How smooth and natural your speech flow is',
+    completeness: 'How much of the intended text you pronounced',
+  },
+
+  errorDescriptions: {
+    pronunciation:   'The word was spoken but the sounds did not match the reference closely enough',
+    omission:        'A word in the reference text was skipped or not detected in your recording',
+    redundancy:      'Extra sounds or words were added that are not in the reference text',
+    tone:            'The word was spoken with an incorrect pitch pattern',
+    unexpectedPause: 'You paused in a spot where no pause was expected',
+    missingPause:    'A natural pause or punctuation break was missed',
   },
 } as const;
 

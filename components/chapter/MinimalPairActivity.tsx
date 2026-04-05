@@ -9,10 +9,12 @@ import { assessMinimalPair } from '@/lib/pronunciation-engine';
 import type { AssessmentResult } from '@/lib/pronunciation-engine';
 import { keepRecording, loadRecordings, retryRecording } from '@/lib/recordings-service';
 import { saveAssessment, getAssessments, deleteAssessment } from '@/lib/db';
+import type { AssessmentRow } from '@/lib/db';
 import { generateMinimalPairFeedback } from '@/lib/engine/minimal-pair-feedback';
 import type { MinimalPairFeedback } from '@/lib/engine/minimal-pair-feedback';
 import AssessmentResultCard from './AssessmentResultCard';
 import MinimalPairContrastCard from './MinimalPairContrastCard';
+import SpeakWordButton from '@/components/ui/SpeakWordButton';
 
 interface MinimalPairActivityProps {
   activityTitle: string;
@@ -53,6 +55,10 @@ export default function MinimalPairActivity({
   onComplete,
 }: MinimalPairActivityProps) {
   const [pairIndex, setPairIndex] = useState(0);
+  const [viewingIndex, setViewingIndex] = useState(0);
+  const [allRecordings, setAllRecordings] = useState<Record<number, string>>({});
+  const [allAssessments, setAllAssessments] = useState<AssessmentRow[]>([]);
+  const [playingReviewKey, setPlayingReviewKey] = useState<string | null>(null);
   const [sideA, setSideA] = useState<SideState>(INITIAL_SIDE);
   const [sideB, setSideB] = useState<SideState>(INITIAL_SIDE);
   const [pairSubmitted, setPairSubmitted] = useState(false);
@@ -62,12 +68,15 @@ export default function MinimalPairActivity({
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
-  // Accumulate phonics scores of every kept recording, averaged at finish
-  const keptScoresRef = useRef<number[]>([]);
+  // Track phonics score per prompt slot (keyed by promptIdx) — overwrites on retry
+  const keptScoresRef = useRef<Record<number, number>>({});
 
   useEffect(() => {
     Audio.requestPermissionsAsync().then(({ granted }) => setPermissionGranted(granted));
-    return () => { soundRef.current?.unloadAsync(); };
+    return () => {
+      soundRef.current?.unloadAsync();
+      recordingRef.current?.stopAndUnloadAsync();
+    };
   }, []);
 
   // Restore saved state on mount
@@ -77,16 +86,28 @@ export default function MinimalPairActivity({
       loadRecordings(studentId, activityId),
       getAssessments(studentId, activityId),
     ]).then(([recordings, assessmentRows]) => {
+      setAllRecordings(recordings);
+      setAllAssessments(assessmentRows);
+
+      // Pre-populate kept scores from persisted assessments so resume includes prior pairs
+      for (const row of assessmentRows) {
+        keptScoresRef.current[row.prompt_index] = row.phonics_score;
+      }
+
+      // Resume to the pair the user was actually on — only advance past a pair
+      // if the next pair has started (proving the user pressed "Next Pair")
       let resumeIdx = 0;
-      for (let i = 0; i < items.length; i++) {
-        if (recordings[i * 2] !== undefined && recordings[i * 2 + 1] !== undefined) {
+      for (let i = 0; i < items.length - 1; i++) {
+        const hasBoth = recordings[i * 2] !== undefined && recordings[i * 2 + 1] !== undefined;
+        const nextStarted = recordings[(i + 1) * 2] !== undefined || recordings[(i + 1) * 2 + 1] !== undefined;
+        if (hasBoth && nextStarted) {
           resumeIdx = i + 1;
         } else {
           break;
         }
       }
-      resumeIdx = Math.min(resumeIdx, items.length - 1);
       setPairIndex(resumeIdx);
+      setViewingIndex(resumeIdx);
 
       const uriA = recordings[resumeIdx * 2];
       const uriB = recordings[resumeIdx * 2 + 1];
@@ -95,6 +116,8 @@ export default function MinimalPairActivity({
 
       if (uriA) setSideA({ status: 'kept', recordingUri: uriA, assessment: rowA ? parseAssessmentRow(rowA) : null, feedback: null, noSpeechMsg: false, hallucinationMsg: false });
       if (uriB) setSideB({ status: 'kept', recordingUri: uriB, assessment: rowB ? parseAssessmentRow(rowB) : null, feedback: null, noSpeechMsg: false, hallucinationMsg: false });
+      // If both assessments exist, show the analysis section directly
+      if (rowA && rowB) setPairSubmitted(true);
     }).catch(() => {/* ignore */});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -130,8 +153,7 @@ export default function MinimalPairActivity({
     } else if (sideState.status === 'recording') {
       try {
         const uri = recordingRef.current?.getURI() ?? null;
-        await recordingRef.current?.stopAndUnloadAsync();
-        recordingRef.current = null;
+        try { await recordingRef.current?.stopAndUnloadAsync(); } finally { recordingRef.current = null; }
         if (!uri) { setSide((s) => ({ ...s, status: 'idle' })); return; }
 
         setSide((s) => ({ ...s, status: 'assessing', recordingUri: uri }));
@@ -144,18 +166,20 @@ export default function MinimalPairActivity({
         if (whisperCtx) {
           const result = await assessMinimalPair(whisperCtx, savedUri, refWord, otherWord, vadCtx);
 
-          if (result.noSpeechDetected || result.hallucination) {
+          if (result.noSpeechDetected) {
+            // Truly no speech — clean up and reset
             if (studentId && activityId) {
               await retryRecording(studentId, activityId, promptIdx).catch(() => {/* ignore */});
             }
             setSide({
               status: 'idle', recordingUri: null, assessment: null, feedback: null,
-              noSpeechMsg: result.noSpeechDetected,
-              hallucinationMsg: result.hallucination,
+              noSpeechMsg: true,
+              hallucinationMsg: false,
             });
             return;
           }
 
+          // Proceed with result (even low scores — user sees what was heard)
           if (studentId && activityId) {
             await saveAssessment({
               id: `${studentId}_${activityId}_${promptIdx}`,
@@ -175,8 +199,8 @@ export default function MinimalPairActivity({
             result.confusedWithPairWord, result.hallucination, result.passed,
           );
 
-          // Track score for final average
-          keptScoresRef.current.push(result.phonicsScore);
+          // Track score for final average — keyed by slot so retry overwrites, not appends
+          keptScoresRef.current[promptIdx] = result.phonicsScore;
 
           setSide({ status: 'review', recordingUri: savedUri, assessment: result, feedback: fb, noSpeechMsg: false, hallucinationMsg: false });
         } else {
@@ -229,6 +253,7 @@ export default function MinimalPairActivity({
       await retryRecording(studentId, activityId, promptIdx).catch(() => {/* ignore */});
       await deleteAssessment(studentId, activityId, promptIdx).catch(() => {/* ignore */});
     }
+    delete keptScoresRef.current[promptIdx];
     const setSide = side === 'A' ? setSideA : setSideB;
     setSide({ status: 'idle', recordingUri: null, assessment: null, feedback: null, noSpeechMsg: false, hallucinationMsg: false });
     if (pairSubmitted) setPairSubmitted(false);
@@ -243,17 +268,59 @@ export default function MinimalPairActivity({
     if (nextIdx >= items.length) {
       setFinished(true);
       // Average of all kept phonics scores across the whole activity
-      const scores = keptScoresRef.current;
+      const scores = Object.values(keptScoresRef.current);
       const avg = scores.length > 0
         ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
         : 0;
       onComplete?.(avg);
     } else {
       setPairIndex(nextIdx);
+      setViewingIndex(nextIdx);
       setSideA(INITIAL_SIDE);
       setSideB(INITIAL_SIDE);
       setPairSubmitted(false);
     }
+  }
+
+  // ── Review navigation (past pairs) ──────────────────────────────────────────
+
+  async function handleViewBack() {
+    if (viewingIndex <= 0) return;
+    if (soundRef.current) { await soundRef.current.unloadAsync(); soundRef.current = null; }
+    setPlayingReviewKey(null);
+    setPlayingSide(null);
+    // Refresh saved data in case new recordings were added since mount
+    if (studentId && activityId) {
+      const [recs, rows] = await Promise.all([
+        loadRecordings(studentId, activityId),
+        getAssessments(studentId, activityId),
+      ]);
+      setAllRecordings(recs);
+      setAllAssessments(rows);
+    }
+    setViewingIndex((v) => v - 1);
+  }
+
+  async function handleViewForward() {
+    if (soundRef.current) { await soundRef.current.unloadAsync(); soundRef.current = null; }
+    setPlayingReviewKey(null);
+    setPlayingSide(null);
+    setViewingIndex((v) => v + 1);
+  }
+
+  async function handleReviewPlayback(key: string, uri: string) {
+    if (soundRef.current) { await soundRef.current.unloadAsync(); soundRef.current = null; }
+    if (playingReviewKey === key) { setPlayingReviewKey(null); return; }
+    try {
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+      const { sound } = await Audio.Sound.createAsync({ uri });
+      soundRef.current = sound;
+      setPlayingReviewKey(key);
+      await sound.playAsync();
+      sound.setOnPlaybackStatusUpdate((s) => {
+        if (s.isLoaded && s.didJustFinish) setPlayingReviewKey(null);
+      });
+    } catch { setPlayingReviewKey(null); }
   }
 
   // ── Guards ───────────────────────────────────────────────────────────────────
@@ -302,7 +369,9 @@ export default function MinimalPairActivity({
       <View className="mb-4">
         <View className="flex-row items-center justify-between mb-1.5">
           <Text className="text-xs font-semibold text-text-muted uppercase tracking-wide">
-            Pair {pairIndex + 1} of {items.length}
+            {viewingIndex < pairIndex
+              ? `Reviewing Pair ${viewingIndex + 1} of ${items.length}`
+              : `Pair ${pairIndex + 1} of ${items.length}`}
           </Text>
           <Text className="text-xs font-semibold" style={{ color: accentColor }}>
             {Math.round((pairIndex / items.length) * 100)}%
@@ -313,6 +382,117 @@ export default function MinimalPairActivity({
         </View>
       </View>
 
+      {/* Past-pair navigation row */}
+      <View className="flex-row items-center justify-between mb-3">
+        {viewingIndex > 0 ? (
+          <Pressable
+            onPress={handleViewBack}
+            className="flex-row items-center gap-1 rounded-full px-3 py-1.5"
+            style={{ backgroundColor: accentColor + '12' }}
+          >
+            <Ionicons name="chevron-back" size={12} color={accentColor} />
+            <Text className="text-xs font-semibold" style={{ color: accentColor }}>Pair {viewingIndex}</Text>
+          </Pressable>
+        ) : <View />}
+        {viewingIndex < pairIndex ? (
+          <Pressable
+            onPress={handleViewForward}
+            className="flex-row items-center gap-1 rounded-full px-3 py-1.5"
+            style={{ backgroundColor: accentColor + '12' }}
+          >
+            <Text className="text-xs font-semibold" style={{ color: accentColor }}>
+              {viewingIndex + 1 < pairIndex ? `Pair ${viewingIndex + 2}` : 'Current Pair'}
+            </Text>
+            <Ionicons name="chevron-forward" size={12} color={accentColor} />
+          </Pressable>
+        ) : pairIndex > 0 ? (
+          <Pressable
+            onPress={handleViewBack}
+            className="flex-row items-center gap-1 rounded-full px-3 py-1.5"
+            style={{ backgroundColor: accentColor + '12' }}
+          >
+            <Ionicons name="chevron-back" size={12} color={accentColor} />
+            <Text className="text-xs font-semibold" style={{ color: accentColor }}>Pair {pairIndex}</Text>
+          </Pressable>
+        ) : <View />}
+      </View>
+
+      {/* Past pair review (read-only) */}
+      {viewingIndex < pairIndex && (() => {
+        const reviewPair = items[viewingIndex]!;
+        const idxA = viewingIndex * 2;
+        const idxB = viewingIndex * 2 + 1;
+        const rowA = allAssessments.find((r) => r.prompt_index === idxA);
+        const rowB = allAssessments.find((r) => r.prompt_index === idxB);
+        const uriA = allRecordings[idxA];
+        const uriB = allRecordings[idxB];
+        const reviewSideA = rowA ? parseAssessmentRow(rowA) : null;
+        const reviewSideB = rowB ? parseAssessmentRow(rowB) : null;
+        return (
+          <View className="rounded-2xl border border-border p-4" style={{ backgroundColor: '#F8FFFE' }}>
+            <View className="flex-row items-center gap-2 mb-4">
+              <View className="w-8 h-8 rounded-xl items-center justify-center" style={{ backgroundColor: '#10B98118' }}>
+                <Ionicons name="eye-outline" size={16} color="#10B981" />
+              </View>
+              <Text className="text-sm font-bold text-text-primary">Review — Pair {viewingIndex + 1}</Text>
+            </View>
+
+            <MinimalPairContrastCard
+              wordA={reviewPair.wordA}
+              ipaA={reviewPair.ipaA}
+              wordB={reviewPair.wordB}
+              ipaB={reviewPair.ipaB}
+              accentColor={accentColor}
+            />
+
+            {/* Word A */}
+            <View className="mb-4 mt-2">
+              <Text className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">{reviewPair.wordA}</Text>
+              {reviewSideA ? (
+                <AssessmentResultCard result={reviewSideA} referenceText={reviewPair.wordA} accentColor={accentColor} />
+              ) : <Text className="text-xs text-text-muted italic">No recording</Text>}
+              {uriA && (
+                <Pressable
+                  onPress={() => handleReviewPlayback(`${viewingIndex}-A`, uriA)}
+                  className="flex-row items-center gap-1.5 rounded-full px-3 py-2 mt-2 self-start"
+                  style={{ backgroundColor: playingReviewKey === `${viewingIndex}-A` ? '#EF444418' : accentColor + '12' }}
+                >
+                  <Ionicons name={playingReviewKey === `${viewingIndex}-A` ? 'stop-circle' : 'play-circle'} size={14} color={playingReviewKey === `${viewingIndex}-A` ? '#EF4444' : accentColor} />
+                  <Text className="text-xs font-semibold" style={{ color: playingReviewKey === `${viewingIndex}-A` ? '#EF4444' : accentColor }}>
+                    {playingReviewKey === `${viewingIndex}-A` ? 'Stop' : 'Play My Recording'}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+
+            <View className="h-px bg-border mb-4" />
+
+            {/* Word B */}
+            <View>
+              <Text className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">{reviewPair.wordB}</Text>
+              {reviewSideB ? (
+                <AssessmentResultCard result={reviewSideB} referenceText={reviewPair.wordB} accentColor={accentColor} />
+              ) : <Text className="text-xs text-text-muted italic">No recording</Text>}
+              {uriB && (
+                <Pressable
+                  onPress={() => handleReviewPlayback(`${viewingIndex}-B`, uriB)}
+                  className="flex-row items-center gap-1.5 rounded-full px-3 py-2 mt-2 self-start"
+                  style={{ backgroundColor: playingReviewKey === `${viewingIndex}-B` ? '#EF444418' : accentColor + '12' }}
+                >
+                  <Ionicons name={playingReviewKey === `${viewingIndex}-B` ? 'stop-circle' : 'play-circle'} size={14} color={playingReviewKey === `${viewingIndex}-B` ? '#EF4444' : accentColor} />
+                  <Text className="text-xs font-semibold" style={{ color: playingReviewKey === `${viewingIndex}-B` ? '#EF4444' : accentColor }}>
+                    {playingReviewKey === `${viewingIndex}-B` ? 'Stop' : 'Play My Recording'}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        );
+      })()}
+
+      {/* Word cards + submit + analysis — only shown when on current pair */}
+      {viewingIndex >= pairIndex && (
+        <>
       {/* Word cards */}
       <View className="flex-row items-start gap-3 mb-3">
         <WordCard
@@ -424,8 +604,7 @@ export default function MinimalPairActivity({
             <View className="gap-2">
               <View className="rounded-lg px-3 py-2.5" style={{ backgroundColor: '#F9731615' }}>
                 <Text className="text-xs text-center font-semibold" style={{ color: '#EA580C' }}>
-                  {/* Use feedback encouragement if available, otherwise generic message */}
-                  {(!sideAPassed && sideA.feedback?.encouragement) || (!sideBPassed && sideB.feedback?.encouragement) || 'Re-record to pass before continuing (need ≥90%)'}
+                  Both words need ≥90% to advance. Re-record the word{!sideAPassed && !sideBPassed ? 's' : ''} below.
                 </Text>
               </View>
               <View className="flex-row gap-2">
@@ -457,6 +636,8 @@ export default function MinimalPairActivity({
             </View>
           )}
         </View>
+      )}
+        </>
       )}
     </View>
   );
@@ -509,8 +690,11 @@ function WordCard({
 
   return (
     <View className="flex-1 rounded-2xl border p-4 items-center" style={{ borderColor, backgroundColor: bgColor }}>
-      {/* Word + IPA */}
-      <Text className="text-2xl font-bold text-text-primary mb-1">{word}</Text>
+      {/* Word + IPA + TTS */}
+      <View className="flex-row items-center gap-2 mb-1">
+        <Text className="text-2xl font-bold text-text-primary">{word}</Text>
+        <SpeakWordButton word={word} accentColor={accentColor} />
+      </View>
       <Text
         className="text-xs text-text-muted mb-3"
         style={{ fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier' }}
@@ -636,18 +820,23 @@ function parseAssessmentRow(row: import('@/lib/db').AssessmentRow): AssessmentRe
   const errors = JSON.parse(row.errors) as AssessmentResult['errors'];
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { getBand, ASSESSMENT_CONFIG } = require('@/lib/assessment-config') as typeof import('@/lib/assessment-config');
+  const { accuracy: wa, fluency: wf, completeness: wc } = ASSESSMENT_CONFIG.scoreWeights;
+  // Back-calculate accuracy from composite: phonics = acc*wa + 100*wf + 100*wc
+  const fixedContribution = 100 * wf + 100 * wc;
+  const accuracyScore = Math.min(100, Math.max(0, Math.round((row.phonics_score - fixedContribution) / wa)));
   return {
     mode: 'word',
     transcript: row.transcript,
     cleanedTranscript: '',
     phonicsScore: row.phonics_score,
-    accuracyScore: row.phonics_score,
-    fluencyScore: 90,
+    accuracyScore,
+    fluencyScore: 100,
     completenessScore: 100,
     prosodyScore: 100,
     errors,
     band: getBand(row.phonics_score),
     passed: row.phonics_score >= ASSESSMENT_CONFIG.passThreshold,
+    recognitionPass: false,
     noSpeechDetected: false,
     hallucination: false,
     confusedWithPairWord: false,

@@ -1,7 +1,7 @@
 import { dictionary } from 'cmu-pronouncing-dictionary';
 
 function getPhonemes(word: string): string[] | null {
-  const entry = (dictionary as Record<string, string>)[word.toUpperCase()];
+  const entry = (dictionary as Record<string, string>)[word.toLowerCase()];
   if (!entry) return null;
   // Strip stress markers (0/1/2) for phoneme-only comparison
   return entry.split(' ').map((p: string) => p.replace(/[012]$/, ''));
@@ -49,5 +49,5 @@ export function phonemeAccuracyScore(recognized: string, reference: string): num
   }
 
   const dist = levenshtein(recPh, refPh);
-  return Math.max(0, Math.round((1 - dist / refPh.length) * 100));
+  return Math.max(0, Math.round((1 - dist / Math.max(refPh.length, recPh.length)) * 100));
 }

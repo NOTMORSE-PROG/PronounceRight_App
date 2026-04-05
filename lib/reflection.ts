@@ -49,6 +49,9 @@ function getActivityWords(activity: Activity): string[] {
     case 'minimal_pair_drill':
       // Minimal pairs use prompt_index: pairIndex*2 for wordA, pairIndex*2+1 for wordB
       return activity.items.flatMap((it) => [it.wordA, it.wordB]);
+    case 'sentence_sequencing':
+      // prompt_index maps to passage index: 0 → "Passage 1", 1 → "Passage 2"
+      return activity.passages.map((_, i) => `Passage ${i + 1}`);
     default:
       return [];
   }
@@ -101,10 +104,12 @@ export async function buildReflectionData(
         } catch { /* ignore */ }
 
         // Identify weak words (below pass threshold)
-        if (row.phonics_score < 90 && row.prompt_index < words.length) {
-          const rawWord = words[row.prompt_index]!;
+        if (row.phonics_score < 90 && row.prompt_index >= 0 && row.prompt_index < words.length) {
+          const rawWord = words[row.prompt_index];
+          if (!rawWord) continue;
           const word = cleanWord(rawWord);
-          const diff = getPhonemeDiff(row.transcript.toLowerCase().trim().split(/\s+/)[0] ?? '', word);
+          const heardWord = row.transcript.toLowerCase().trim().split(/\s+/)[0] || '';
+          const diff = getPhonemeDiff(heardWord, word);
           let errors: ErrorCategory[] = [];
           try { errors = JSON.parse(row.errors); } catch { /* ignore */ }
           const tip = getImprovementTip(errors, diff, word);

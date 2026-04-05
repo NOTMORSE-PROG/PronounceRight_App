@@ -79,7 +79,7 @@ export const CONSONANT_TIPS: Record<string, string> = {
 // ── Phoneme helpers ──────────────────────────────────────────────────────────
 
 export function getPhonemes(word: string): string[] | null {
-  const entry = (dictionary as Record<string, string>)[word.toUpperCase()];
+  const entry = (dictionary as Record<string, string>)[word.toLowerCase()];
   if (!entry) return null;
   return entry.split(' ').map((p: string) => p.replace(/[012]$/, ''));
 }
@@ -175,23 +175,24 @@ export function getImprovementTip(
   if (errors.length === 0) return '';
 
   if (errors.includes('omission')) {
-    return `Say the complete word "${referenceWord}" clearly — make sure not to cut it short.`;
+    return `Say the complete word "${referenceWord}" — pronounce every sound from start to finish.`;
   }
   if (errors.includes('redundancy')) {
-    return `Say only the word "${referenceWord}" — avoid adding extra words before or after it.`;
+    return `Say only "${referenceWord}" — one clear word, nothing before or after.`;
   }
   if (errors.includes('pronunciation') && diff) {
-    const tip = getArticulatoryTip(diff.refPhonemes[diff.firstDiffIndex] ?? '');
+    const phoneme = diff.refPhonemes[diff.firstDiffIndex] ?? '';
+    const tip = getArticulatoryTip(phoneme);
     if (diff.isVowelError && tip) {
       return `The vowel in "${referenceWord}" is the ${diff.refLabel}. ${tip}`;
     }
     if (tip) {
       return `The ${diff.refLabel} in "${referenceWord}": ${tip}`;
     }
-    return `Focus on the ${diff.refLabel} in "${referenceWord}". Listen carefully and try to match that exact sound.`;
+    return `Focus on the ${diff.refLabel} in "${referenceWord}" — say it slowly and feel your mouth position for that sound.`;
   }
   if (errors.includes('pronunciation')) {
-    return `Listen carefully to how "${referenceWord}" is pronounced, then try to match each sound exactly.`;
+    return `Say "${referenceWord}" slowly, one sound at a time. Focus on making each sound clear and distinct.`;
   }
   return '';
 }

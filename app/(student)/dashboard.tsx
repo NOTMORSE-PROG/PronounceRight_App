@@ -29,7 +29,7 @@ const MODULES_WITH_IDS = MODULES_DATA.map((m, i) => ({
 
 export default function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
-  const { getCurrentStreak, getBadges, getModuleCompletion, chapterProgress, recordWotdPractice, getWotdScore } = useProgressStore();
+  const { getCurrentStreak, getBadges, getModuleCompletion, chapterProgress, recordWotdPractice, getWotdScore, devUnlockAll } = useProgressStore();
 
   const streak = getCurrentStreak();
 
@@ -56,7 +56,7 @@ export default function DashboardScreen() {
   for (let i = 0; i < MODULES_WITH_IDS.length; i++) {
     const mod = MODULES_WITH_IDS[i]!;
     // Module is locked if previous module is not 100% complete
-    if (i > 0) {
+    if (i > 0 && !devUnlockAll) {
       const prev = MODULES_WITH_IDS[i - 1]!;
       if (getModuleCompletion(prev.id, prev.chapters.map((c) => c.id)) < 100) break;
     }

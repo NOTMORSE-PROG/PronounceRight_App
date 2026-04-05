@@ -21,6 +21,8 @@ interface ProgressState {
   getModuleCompletion: (moduleId: string, chapterIds: string[]) => number;
   recordWotdPractice: (dateKey: string, score: number) => void;
   getWotdScore: (dateKey: string) => number | null;
+  devUnlockAll: boolean;
+  toggleDevUnlock: () => void;
   reset: () => void;
 }
 
@@ -36,6 +38,9 @@ export const useProgressStore = create<ProgressState>()(
   persist(
     (set, get) => ({
       ...DEFAULT_STATE,
+      devUnlockAll: false,
+
+      toggleDevUnlock: () => set((s) => ({ devUnlockAll: !s.devUnlockAll })),
 
       recordPractice: () => {
         const today = new Date().toISOString().slice(0, 10);

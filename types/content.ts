@@ -99,11 +99,19 @@ export interface IntonationMcqActivity extends BaseActivity {
 export interface IntonationDrillActivity extends BaseActivity {
   type: 'intonation_drill';
   sentences: string[];
+  expectedIntonations: ('rising' | 'falling')[];
+}
+
+export interface PickAndSpeakCueCard {
+  question: string;
+  keyPhrases: string[];    // shown during prep time only
+  modelAnswer: string;     // example answer shown post-recording with speaker button
+  topicKeywords: string[]; // for content relevance scoring
 }
 
 export interface PickAndSpeakActivity extends BaseActivity {
   type: 'pick_and_speak';
-  cueCards: string[];
+  cueCards: PickAndSpeakCueCard[];
   sentenceCount: { min: number; max: number };
 }
 
@@ -137,6 +145,7 @@ export type Activity =
 export interface LessonExample {
   text: string;
   explanation: string;
+  speakText?: string; // exact text for TTS; falls back to stripped text when absent
 }
 
 export interface Lesson {

@@ -117,9 +117,9 @@ export default function ChapterReflectionCard({
                   </Text>
                 ) : null}
                 {w.tip ? (
-                  <View className="rounded-lg px-2.5 py-2 mt-1" style={{ backgroundColor: '#F9731610' }}>
+                  <View className="rounded-lg px-2.5 py-2 mt-1" style={{ backgroundColor: accentColor + '10' }}>
                     <View className="flex-row gap-1.5">
-                      <Ionicons name="bulb-outline" size={13} color="#EA580C" style={{ marginTop: 1 }} />
+                      <Ionicons name="bulb-outline" size={13} color={accentColor} style={{ marginTop: 1 }} />
                       <Text className="text-xs text-text-secondary leading-relaxed flex-1">{w.tip}</Text>
                     </View>
                   </View>

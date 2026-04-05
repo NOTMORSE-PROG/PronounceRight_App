@@ -38,6 +38,12 @@
         {
           "faceIDPermission": "Allow $(PRODUCT_NAME) to access Face ID to authenticate."
         }
+      ],
+      [
+        "react-native-audio-api",
+        {
+          "microphonePermission": "Allow PronounceRight to access your microphone."
+        }
       ]
     ],
     "experiments": {

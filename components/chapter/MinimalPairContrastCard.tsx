@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Platform } from 'react-native';
-import { getMinimalPairContrast, getPhonemes } from '@/lib/engine/phoneme-tips';
+import { getMinimalPairContrast, getPhonemes, PHONEME_LABELS } from '@/lib/engine/phoneme-tips';
 
 interface MinimalPairContrastCardProps {
   wordA: string;
@@ -95,25 +95,32 @@ function PhonemeChips({
     <View className="flex-row flex-wrap gap-1 justify-center">
       {phonemes.map((p, i) => {
         const isDiff = diffIndices.has(i);
+        const label = isDiff ? PHONEME_LABELS[p] : undefined;
         return (
-          <View
-            key={i}
-            className="rounded px-1.5 py-0.5"
-            style={{
-              backgroundColor: isDiff ? color + '20' : '#0000000A',
-              borderWidth: isDiff ? 1 : 0,
-              borderColor: isDiff ? color : 'transparent',
-            }}
-          >
-            <Text
-              className="text-xs font-semibold"
+          <View key={i} className="items-center" style={{ maxWidth: 72 }}>
+            <View
+              className="rounded px-1.5 py-0.5"
               style={{
-                color: isDiff ? color : '#78909C',
-                fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
+                backgroundColor: isDiff ? color + '20' : '#0000000A',
+                borderWidth: isDiff ? 1 : 0,
+                borderColor: isDiff ? color : 'transparent',
               }}
             >
-              {p}
-            </Text>
+              <Text
+                className="text-xs font-semibold"
+                style={{
+                  color: isDiff ? color : '#78909C',
+                  fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
+                }}
+              >
+                {p}
+              </Text>
+            </View>
+            {label && (
+              <Text className="text-center mt-0.5" style={{ fontSize: 8, color, lineHeight: 10 }}>
+                {label}
+              </Text>
+            )}
           </View>
         );
       })}
