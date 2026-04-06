@@ -6,6 +6,7 @@ export default function ModuleLayout() {
     <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <Stack.Screen name="[moduleId]" />
       <Stack.Screen name="chapter/[chapterId]" />
+      <Stack.Screen name="final-assessment" />
     </Stack>
   );
 }

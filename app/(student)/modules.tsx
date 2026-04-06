@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import ScreenHeader from '@/components/ui/ScreenHeader';
 import ModuleCard from '@/components/module/ModuleCard';
 import { useProgressStore } from '@/stores/progress';
@@ -13,7 +15,11 @@ const MODULES_WITH_IDS = MODULES_DATA.map((m, i) => ({
 }));
 
 export default function ModulesScreen() {
-  const { getModuleCompletion, devUnlockAll, toggleDevUnlock } = useProgressStore();
+  const { getModuleCompletion, devUnlockAll, toggleDevUnlock, finalAssessmentResult } = useProgressStore();
+
+  const allModulesComplete = devUnlockAll || MODULES_WITH_IDS.every(
+    (m) => getModuleCompletion(m.id, m.chapters.map((c) => c.id)) === 100,
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-surface-page" edges={['top']}>
@@ -84,14 +90,38 @@ export default function ModulesScreen() {
                 IELTS Speaking Part 2 format — 1 minute preparation, 1–2 minutes speaking
                 on a given topic.
               </Text>
-              <View className="bg-white/20 rounded-xl px-4 py-2 self-start mb-4">
-                <Text className="text-white text-xs font-semibold">🔒 Complete all modules first</Text>
+
+              {/* Status chips */}
+              <View className="flex-row gap-2 mb-4 flex-wrap">
+                {!allModulesComplete ? (
+                  <View className="bg-white/20 rounded-xl px-4 py-2 self-start">
+                    <Text className="text-white text-xs font-semibold">🔒 Complete all modules first</Text>
+                  </View>
+                ) : (
+                  <View className="bg-white/20 rounded-xl px-4 py-2 self-start flex-row items-center gap-1.5">
+                    <Ionicons name="checkmark-circle" size={14} color="white" />
+                    <Text className="text-white text-xs font-semibold">All modules complete</Text>
+                  </View>
+                )}
+                {finalAssessmentResult && (
+                  <View className="bg-white/20 rounded-xl px-4 py-2 self-start">
+                    <Text className="text-white text-xs font-semibold">
+                      Best: {finalAssessmentResult.bestScore}%
+                      {finalAssessmentResult.passed ? ' ✓' : ''}
+                    </Text>
+                  </View>
+                )}
               </View>
+
               <Pressable
-                className="bg-white rounded-xl py-3 items-center opacity-50"
-                disabled
+                className="bg-white rounded-xl py-3 items-center"
+                style={{ opacity: allModulesComplete ? 1 : 0.5 }}
+                disabled={!allModulesComplete}
+                onPress={() => router.push('/(student)/module/final-assessment')}
               >
-                <Text className="text-accent-600 font-bold">Start Assessment</Text>
+                <Text className="text-accent-600 font-bold">
+                  {finalAssessmentResult ? 'Retake Assessment' : 'Start Assessment'}
+                </Text>
               </Pressable>
             </LinearGradient>
           </View>

@@ -38,6 +38,13 @@ export interface IntonationChoiceItem {
   correctAnswer: 'rising' | 'falling';
 }
 
+export interface WordArrangementItem {
+  id: string;
+  words: string[];        // displayed in shuffled order
+  correctSentence: string; // correct sentence text (for TTS + display)
+  correctOrder: number[]; // indices into words[] for correct sentence
+}
+
 export type ActivityItem =
   | IdentifyPronunciationItem
   | VowelSoundItem
@@ -115,6 +122,22 @@ export interface PickAndSpeakActivity extends BaseActivity {
   sentenceCount: { min: number; max: number };
 }
 
+export interface WordArrangementActivity extends BaseActivity {
+  type: 'word_arrangement';
+  items: WordArrangementItem[];
+}
+
+export interface OpinionBuilderPrompt {
+  id: string;
+  template: string;       // "I think school is ______ because ______."
+  keywords: string[];     // keywords to check in transcription for completion
+}
+
+export interface OpinionBuilderActivity extends BaseActivity {
+  type: 'opinion_builder';
+  prompts: OpinionBuilderPrompt[];
+}
+
 export interface SentenceSequencingPassage {
   id: string;
   sentences: string[];    // displayed in this order (pre-shuffled)
@@ -125,6 +148,49 @@ export interface SentenceSequencingActivity extends BaseActivity {
   type: 'sentence_sequencing';
   passages: SentenceSequencingPassage[];
   maxAudioPlays: number;
+}
+
+export interface SentenceCompletionItem {
+  id: string;
+  template: string;       // "I ______ a sandwich for breakfast."
+  choices: string[];      // ["eat", "eats", "eating"]
+  correctIndex: number;   // 0
+  fullSentence: string;   // "I eat a sandwich for breakfast."
+  keywords: string[];     // keywords for transcription check
+}
+
+export interface SentenceCompletionActivity extends BaseActivity {
+  type: 'sentence_completion';
+  items: SentenceCompletionItem[];
+}
+
+export interface VideoRolePlayStep {
+  id: string;
+  /** Key into the video registry (maps to a static require() asset) */
+  videoKey: string;
+  /** Short label shown above the video, e.g. "Caller says:" */
+  label: string;
+  /** Whether the student records a spoken response after watching */
+  requiresResponse: boolean;
+  /** Hint shown during the recording phase */
+  responseHint?: string;
+  /** If set, show choice buttons after recording; each leads to a different next step */
+  branches?: { label: string; nextStepId: string }[];
+  /** For linear flow: the next step's id (omitted on terminal steps) */
+  nextStepId?: string;
+}
+
+export interface VideoRolePlayScenario {
+  id: string;
+  title: string;
+  description: string;
+  entryStepId: string;
+  steps: VideoRolePlayStep[];
+}
+
+export interface VideoRolePlayActivity extends BaseActivity {
+  type: 'video_role_play';
+  scenarios: VideoRolePlayScenario[];
 }
 
 export type Activity =
@@ -138,7 +204,11 @@ export type Activity =
   | IntonationMcqActivity
   | IntonationDrillActivity
   | PickAndSpeakActivity
-  | SentenceSequencingActivity;
+  | SentenceSequencingActivity
+  | WordArrangementActivity
+  | OpinionBuilderActivity
+  | SentenceCompletionActivity
+  | VideoRolePlayActivity;
 
 // ─── Lesson Types ──────────────────────────────────────────────────────────────
 

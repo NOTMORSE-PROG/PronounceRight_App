@@ -15,6 +15,10 @@ import SequencingActivity from '@/components/chapter/SequencingActivity';
 import StressDrillActivity from '@/components/chapter/StressDrillActivity';
 import IntonationDrillActivity from '@/components/chapter/IntonationDrillActivity';
 import PickAndSpeakActivity from '@/components/chapter/PickAndSpeakActivity';
+import WordArrangementActivity from '@/components/chapter/WordArrangementActivity';
+import OpinionBuilderActivity from '@/components/chapter/OpinionBuilderActivity';
+import SentenceCompletionActivity from '@/components/chapter/SentenceCompletionActivity';
+import VideoRolePlayActivity from '@/components/chapter/VideoRolePlayActivity';
 import ChapterReflectionCard from '@/components/chapter/ChapterReflectionCard';
 import SpeakWordButton from '@/components/ui/SpeakWordButton';
 import { MODULES_DATA } from '@/types';
@@ -31,6 +35,10 @@ import type {
   IntonationMcqActivity,
   IntonationDrillActivity as IntonationDrillActivityType,
   VowelSoundItem,
+  WordArrangementActivity as WordArrangementActivityType,
+  OpinionBuilderActivity as OpinionBuilderActivityType,
+  SentenceCompletionActivity as SentenceCompletionActivityType,
+  VideoRolePlayActivity as VideoRolePlayActivityType,
 } from '@/types/content';
 
 const MODULES_WITH_IDS = MODULES_DATA.map((m, i) => ({ ...m, id: `m${i + 1}` }));
@@ -417,6 +425,80 @@ function ActivityRenderer({
         />
       );
 
+    case 'word_arrangement': {
+      const wa = activity as WordArrangementActivityType;
+      return (
+        <WordArrangementActivity
+          activityTitle={wa.title}
+          direction={wa.direction}
+          items={wa.items}
+          passThreshold={wa.passThreshold}
+          accentColor={accentColor}
+          studentId={studentId}
+          activityId={wa.id}
+          onComplete={(score) => onComplete(wa.id, score)}
+          onAdvance={onAdvance}
+        />
+      );
+    }
+
+    case 'opinion_builder': {
+      const ob = activity as OpinionBuilderActivityType;
+      return (
+        <OpinionBuilderActivity
+          activityTitle={ob.title}
+          direction={ob.direction}
+          prompts={ob.prompts}
+          passThreshold={ob.passThreshold}
+          accentColor={accentColor}
+          studentId={studentId}
+          activityId={ob.id}
+          whisperCtx={whisperCtx}
+          vadCtx={vadCtx}
+          onComplete={(score) => onComplete(ob.id, score)}
+          onAdvance={onAdvance}
+        />
+      );
+    }
+
+    case 'sentence_completion': {
+      const sc = activity as SentenceCompletionActivityType;
+      return (
+        <SentenceCompletionActivity
+          activityTitle={sc.title}
+          direction={sc.direction}
+          items={sc.items}
+          passThreshold={sc.passThreshold}
+          accentColor={accentColor}
+          studentId={studentId}
+          activityId={sc.id}
+          whisperCtx={whisperCtx}
+          vadCtx={vadCtx}
+          onComplete={(score) => onComplete(sc.id, score)}
+          onAdvance={onAdvance}
+        />
+      );
+    }
+
+    case 'video_role_play': {
+      const vrp = activity as VideoRolePlayActivityType;
+      return (
+        <VideoRolePlayActivity
+          activityTitle={vrp.title}
+          direction={vrp.direction}
+          scenarios={vrp.scenarios}
+          passThreshold={vrp.passThreshold}
+          accentColor={accentColor}
+          studentId={studentId}
+          activityId={vrp.id}
+          whisperCtx={whisperCtx}
+          vadCtx={vadCtx}
+          onComplete={(score) => onComplete(vrp.id, score)}
+          onAdvance={onAdvance}
+        />
+      );
+    }
+
     default:
       return null;
   }
@@ -455,7 +537,7 @@ export default function ChapterScreen() {
 
   // ─── Activity completion (feeds module % progress) ──────────────────────────
   const [activityScores, setActivityScores] = useState<Record<string, number>>({});
-  const { updateChapterProgress, chapterProgress, updateLastStep, touchLastAccessed, recordPractice, checkAndAwardBadges } = useProgressStore();
+  const { updateChapterProgress, chapterProgress, updateLastStep, touchLastAccessed, recordPractice, checkAndAwardBadges, devUnlockAll } = useProgressStore();
 
   const scorableIds = sections
     .filter((s): s is { kind: 'activity'; data: Activity } =>
@@ -573,12 +655,19 @@ export default function ChapterScreen() {
     // Last activity is gated — pronunciation drills gate themselves and only call
     // onComplete when all pairs pass. For non-pronunciation last activities, require ≥70.
     // All earlier activities complete freely.
-    if (!isLastActivity || score >= 90) {
+    if (!isLastActivity || score >= 90 || devUnlockAll) {
       setStepCompleted((prev) => ({ ...prev, [stepIndex]: true }));
     }
   }
 
   function handleNext() {
+    if (devUnlockAll && !stepCompleted[currentStep]) {
+      const section = sections[currentStep];
+      if (section?.kind === 'activity') {
+        handleActivityComplete(section.data.id, 100);
+        setStepCompleted((prev) => ({ ...prev, [currentStep]: true }));
+      }
+    }
     if (currentStep < sections.length - 1) setCurrentStep((s) => s + 1);
   }
 
@@ -771,22 +860,22 @@ export default function ChapterScreen() {
                   <Pressable
                     className="flex-row items-center gap-1 rounded-xl py-3 px-5 active:opacity-80"
                     style={{
-                      backgroundColor: isCurrentStepComplete ? color : '#E2E8F0',
-                      opacity: isCurrentStepComplete ? 1 : 0.55,
+                      backgroundColor: (isCurrentStepComplete || devUnlockAll) ? color : '#E2E8F0',
+                      opacity: (isCurrentStepComplete || devUnlockAll) ? 1 : 0.55,
                     }}
                     onPress={handleNext}
-                    disabled={!isCurrentStepComplete}
+                    disabled={!isCurrentStepComplete && !devUnlockAll}
                   >
                     <Text
                       className="font-semibold text-base"
-                      style={{ color: isCurrentStepComplete ? '#fff' : '#90A4AE' }}
+                      style={{ color: (isCurrentStepComplete || devUnlockAll) ? '#fff' : '#90A4AE' }}
                     >
                       Next
                     </Text>
                     <Ionicons
                       name="chevron-forward"
                       size={16}
-                      color={isCurrentStepComplete ? '#fff' : '#90A4AE'}
+                      color={(isCurrentStepComplete || devUnlockAll) ? '#fff' : '#90A4AE'}
                     />
                   </Pressable>
                 )}

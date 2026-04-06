@@ -44,7 +44,8 @@
         {
           "microphonePermission": "Allow PronounceRight to access your microphone."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

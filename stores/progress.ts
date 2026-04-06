@@ -4,12 +4,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChapterProgress, Badge, BadgeType, ALL_BADGES } from '@/types';
 import { getNewBadges } from '@/lib/badge-checker';
 
+interface FinalAssessmentResult {
+  bestScore: number;
+  attempts: number;
+  completedAt: string;
+  passed: boolean;
+}
+
 interface ProgressState {
   streak: number;
   lastPracticeDate: string | null;
   chapterProgress: Record<string, ChapterProgress>;
   earnedBadges: Record<BadgeType, string>;  // BadgeType → earnedAt ISO string
   wotdHistory: Record<string, number>;      // "YYYY-MM-DD" → best phonics score
+  finalAssessmentResult: FinalAssessmentResult | null;
   recordPractice: () => void;
   getCurrentStreak: () => number;
   updateChapterProgress: (p: ChapterProgress) => void;
@@ -21,6 +29,7 @@ interface ProgressState {
   getModuleCompletion: (moduleId: string, chapterIds: string[]) => number;
   recordWotdPractice: (dateKey: string, score: number) => void;
   getWotdScore: (dateKey: string) => number | null;
+  saveFinalAssessmentResult: (score: number, passed: boolean) => void;
   devUnlockAll: boolean;
   toggleDevUnlock: () => void;
   reset: () => void;
@@ -32,6 +41,7 @@ const DEFAULT_STATE = {
   chapterProgress: {} as Record<string, ChapterProgress>,
   earnedBadges: {} as Record<BadgeType, string>,
   wotdHistory: {} as Record<string, number>,
+  finalAssessmentResult: null as FinalAssessmentResult | null,
 };
 
 export const useProgressStore = create<ProgressState>()(
@@ -152,6 +162,19 @@ export const useProgressStore = create<ProgressState>()(
         return wotdHistory[dateKey] ?? null;
       },
 
+      saveFinalAssessmentResult: (score, passed) => {
+        const prev = get().finalAssessmentResult;
+        set({
+          finalAssessmentResult: {
+            bestScore: Math.max(score, prev?.bestScore ?? 0),
+            attempts: (prev?.attempts ?? 0) + 1,
+            completedAt: new Date().toISOString(),
+            passed: passed || (prev?.passed ?? false),
+          },
+        });
+        if (passed) get().awardBadge('speakright_master');
+      },
+
       reset: () => set(DEFAULT_STATE),
     }),
     {
@@ -163,6 +186,7 @@ export const useProgressStore = create<ProgressState>()(
         chapterProgress: s.chapterProgress,
         earnedBadges: s.earnedBadges,
         wotdHistory: s.wotdHistory,
+        finalAssessmentResult: s.finalAssessmentResult,
       }),
     },
   ),
