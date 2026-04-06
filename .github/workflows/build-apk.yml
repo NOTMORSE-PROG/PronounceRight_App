@@ -45,6 +45,22 @@ jobs:
           fi
           echo "LFS verified — whisper model: $((FILE_SIZE / 1048576))MB"
 
+          echo "Checking LFS video files..."
+          VIDEO_ERRORS=0
+          while IFS= read -r -d '' f; do
+            SIZE=$(stat --printf="%s" "$f")
+            if [ "$SIZE" -lt 10000 ]; then
+              echo "::error::LFS video is still a pointer: $f ($SIZE bytes)"
+              VIDEO_ERRORS=$((VIDEO_ERRORS + 1))
+            fi
+          done < <(find assets/videos -name "*.mp4" -print0)
+          if [ "$VIDEO_ERRORS" -gt 0 ]; then
+            echo "::error::$VIDEO_ERRORS video file(s) were not pulled from LFS."
+            exit 1
+          fi
+          VIDEO_COUNT=$(find assets/videos -name "*.mp4" | wc -l)
+          echo "LFS verified — $VIDEO_COUNT video file(s) OK"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
