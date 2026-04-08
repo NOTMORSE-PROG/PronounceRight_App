@@ -13,7 +13,7 @@ import type { WhisperContext, WhisperVadContext } from 'whisper.rn';
 import { WHISPER_RECORDING_OPTIONS } from '@/lib/recording-options';
 import { keepRecording } from '@/lib/recordings-service';
 import { saveActivityCompletion, getActivityCompletion } from '@/lib/db';
-import VIDEO_REGISTRY from '@/assets/videos/m3c3/index';
+import VIDEO_REGISTRY, { VIDEO_END_FRAMES } from '@/assets/videos/m3c3/index';
 import type { VideoRolePlayScenario, VideoRolePlayStep } from '@/types/content';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -478,16 +478,32 @@ function VideoStep({
 }) {
   const [hasEnded, setHasEnded] = useState(false);
   const source = VIDEO_REGISTRY[step.videoKey];
+  const endFrame = VIDEO_END_FRAMES[step.videoKey];
 
   const player = useVideoPlayer(source ?? null, (p) => {
     p.play();
   });
+
+  // Freeze on a frame where the human is visible (instead of black/empty background).
+  const freezeOnHumanFrame = useCallback(() => {
+    if (!player) return;
+    try {
+      const target =
+        typeof endFrame === 'number'
+          ? endFrame
+          : Math.max(0, (player.duration ?? 0) - 0.5);
+      // expo-video uses currentTime as a writable property
+      (player as unknown as { currentTime: number }).currentTime = target;
+      player.pause();
+    } catch { /* ignore */ }
+  }, [player, endFrame]);
 
   useEffect(() => {
     if (!player) return;
     onPhaseChange('video_playing');
 
     const sub = player.addListener('playToEnd', () => {
+      freezeOnHumanFrame();
       setHasEnded(true);
     });
     return () => sub.remove();
@@ -496,7 +512,7 @@ function VideoStep({
 
   const handleReplay = () => {
     try {
-      player?.seekBy(-999999);
+      (player as unknown as { currentTime: number }).currentTime = 0;
       player?.play();
       setHasEnded(false);
     } catch { /* ignore */ }
@@ -563,7 +579,7 @@ function VideoStep({
           className="flex-row items-center justify-center gap-2 rounded-xl py-3 active:opacity-80"
           style={{ backgroundColor: accentColor + '12', borderWidth: 1, borderColor: accentColor + '40' }}
           onPress={() => {
-            player?.seekBy(999999);
+            freezeOnHumanFrame();
             setHasEnded(true);
           }}
         >

@@ -45,7 +45,8 @@
           "microphonePermission": "Allow PronounceRight to access your microphone."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

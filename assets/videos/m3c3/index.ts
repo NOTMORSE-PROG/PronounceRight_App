@@ -24,4 +24,21 @@ const VIDEO_REGISTRY: Record<string, number> = {
   's5-general':          require('./s5-general.mp4'),
 };
 
+/**
+ * Per-video "freeze frame" timestamps (seconds from start) where a human is
+ * clearly visible. When a video ends or is skipped, we seek here and pause so
+ * the paused frame doesn't show empty background.
+ *
+ * TODO: Inspect each clip and fill in real timestamps. Any clip not listed
+ * here will fall back to seeking 0.5 s before its natural end.
+ *
+ * Tip: pick a moment in the middle of the video where the speaker is on
+ * screen and roughly facing forward.
+ */
+export const VIDEO_END_FRAMES: Record<string, number> = {
+  // 's1-opening': 2.5,
+  // 's1-followup-yes': 1.8,
+  // ... add as needed
+};
+
 export default VIDEO_REGISTRY;

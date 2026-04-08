@@ -18,16 +18,13 @@ export default function ProfileScreen() {
   const logout = useAuthStore((s) => s.logout);
   const { getBadges, getModuleCompletion } = useProgressStore();
 
+  const certificateEarned = useProgressStore((s) => s.certificateEarned);
   const fullName = user?.fullName ?? 'Student';
   const className = user?.className ?? 'No Class';
   const badges = getBadges();
   const earnedBadgesCount = badges.filter((b) => b.earnedAt !== null).length;
   const chapterProgressValues = Object.values(useProgressStore.getState().chapterProgress);
   const lessonsCompleted = chapterProgressValues.filter((p) => p.completed).length;
-  const completedWithScore = chapterProgressValues.filter((p) => p.completed && p.bestScore !== null);
-  const avgAccuracy = completedWithScore.length > 0
-    ? Math.round(completedWithScore.reduce((sum, p) => sum + (p.bestScore ?? 0), 0) / completedWithScore.length)
-    : 0;
 
   async function handleLogout() {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -68,7 +65,6 @@ export default function ProfileScreen() {
             <View className="flex-row gap-3">
               {[
                 { icon: '📚', value: lessonsCompleted, label: 'Lessons Done' },
-                { icon: '📊', value: `${avgAccuracy}%`, label: 'Accuracy' },
                 { icon: '🥇', value: earnedBadgesCount, label: 'Badges' },
               ].map((stat) => (
                 <View
@@ -110,31 +106,42 @@ export default function ProfileScreen() {
             })}
           </View>
 
+          {/* Certificate (only after all 3 modules complete) */}
+          {certificateEarned && (
+            <Pressable
+              className="mx-4 mb-5 bg-white rounded-2xl border border-border overflow-hidden active:opacity-80"
+              onPress={() => router.push('/(student)/certificate?from=profile' as any)}
+            >
+              <View className="flex-row items-center px-4 py-4">
+                <View className="w-12 h-12 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: '#FFF8E1' }}>
+                  <Ionicons name="ribbon" size={24} color="#F59E0B" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-text-primary">My Certificate</Text>
+                  <Text className="text-xs text-text-muted mt-0.5">Tap to view, download, or share</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#90A4AE" />
+              </View>
+            </Pressable>
+          )}
+
           {/* Settings */}
           <View className="mx-4 mb-5 bg-white rounded-2xl border border-border overflow-hidden">
             <Text className="text-xs font-semibold text-text-muted uppercase tracking-wide px-4 pt-4 pb-2">
               Settings
             </Text>
 
-            {[
-              { icon: 'text-outline' as const, label: 'Text Size', hint: 'Normal' },
-              { icon: 'volume-medium-outline' as const, label: 'Audio Volume', hint: '100%' },
-              { icon: 'information-circle-outline' as const, label: 'About SpeakRight', hint: 'v1.0.0' },
-            ].map((item, i) => (
-              <Pressable
-                key={item.label}
-                className={`flex-row items-center px-4 py-3.5 active:bg-primary-50 ${
-                  i > 0 ? 'border-t border-border' : ''
-                }`}
-              >
-                <View className="w-8 h-8 bg-primary-50 rounded-lg items-center justify-center mr-3">
-                  <Ionicons name={item.icon} size={18} color="#2196F3" />
-                </View>
-                <Text className="flex-1 text-sm font-medium text-text-primary">{item.label}</Text>
-                <Text className="text-sm text-text-muted mr-2">{item.hint}</Text>
-                <Ionicons name="chevron-forward" size={16} color="#90A4AE" />
-              </Pressable>
-            ))}
+            <Pressable
+              className="flex-row items-center px-4 py-3.5 active:bg-primary-50"
+              onPress={() => router.push('/(student)/about' as any)}
+            >
+              <View className="w-8 h-8 bg-primary-50 rounded-lg items-center justify-center mr-3">
+                <Ionicons name="information-circle-outline" size={18} color="#2196F3" />
+              </View>
+              <Text className="flex-1 text-sm font-medium text-text-primary">About SpeakRight</Text>
+              <Text className="text-sm text-text-muted mr-2">v1.0.0</Text>
+              <Ionicons name="chevron-forward" size={16} color="#90A4AE" />
+            </Pressable>
           </View>
 
           {/* Logout */}

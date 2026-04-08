@@ -72,13 +72,6 @@ export default function DashboardScreen() {
     ? getModuleCompletion(continueModule.id, continueModule.chapters.map((c) => c.id))
     : 100;
 
-  const completedEntries = Object.values(chapterProgress).filter(
-    (p) => p.completed && p.bestScore !== null,
-  );
-  const avgAccuracy = completedEntries.length > 0
-    ? Math.round(completedEntries.reduce((sum, p) => sum + (p.bestScore ?? 0), 0) / completedEntries.length)
-    : 0;
-
   return (
     <SafeAreaView className="flex-1 bg-surface-page" edges={['top']}>
       {/* Top Header */}
@@ -119,7 +112,6 @@ export default function DashboardScreen() {
           <QuickStats
             badgeCount={badgeCount}
             streak={streak}
-            avgAccuracy={avgAccuracy}
           />
 
           {/* Continue Learning */}

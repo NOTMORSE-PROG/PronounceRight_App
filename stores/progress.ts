@@ -18,13 +18,18 @@ interface ProgressState {
   earnedBadges: Record<BadgeType, string>;  // BadgeType → earnedAt ISO string
   wotdHistory: Record<string, number>;      // "YYYY-MM-DD" → best phonics score
   finalAssessmentResult: FinalAssessmentResult | null;
+  certificateEarned: boolean;
+  certificateEarnedAt: string | null;
+  moduleCelebrated: Record<string, string>; // moduleId → celebratedAt ISO
   recordPractice: () => void;
   getCurrentStreak: () => number;
   updateChapterProgress: (p: ChapterProgress) => void;
   updateLastStep: (chapterId: string, step: number) => void;
   touchLastAccessed: (chapterId: string) => void;
   awardBadge: (type: BadgeType) => void;
-  checkAndAwardBadges: () => void;
+  checkAndAwardBadges: () => BadgeType[];
+  markCertificateEarned: () => void;
+  markModuleCelebrated: (moduleId: string) => void;
   getBadges: () => Badge[];
   getModuleCompletion: (moduleId: string, chapterIds: string[]) => number;
   recordWotdPractice: (dateKey: string, score: number) => void;
@@ -42,6 +47,9 @@ const DEFAULT_STATE = {
   earnedBadges: {} as Record<BadgeType, string>,
   wotdHistory: {} as Record<string, number>,
   finalAssessmentResult: null as FinalAssessmentResult | null,
+  certificateEarned: false,
+  certificateEarnedAt: null as string | null,
+  moduleCelebrated: {} as Record<string, string>,
 };
 
 export const useProgressStore = create<ProgressState>()(
@@ -130,7 +138,18 @@ export const useProgressStore = create<ProgressState>()(
         for (const badge of newBadges) {
           state.awardBadge(badge);
         }
+        return newBadges;
       },
+
+      markCertificateEarned: () => {
+        if (get().certificateEarned) return;
+        set({ certificateEarned: true, certificateEarnedAt: new Date().toISOString() });
+      },
+
+      markModuleCelebrated: (moduleId) =>
+        set((s) => ({
+          moduleCelebrated: { ...s.moduleCelebrated, [moduleId]: new Date().toISOString() },
+        })),
 
       getBadges: () => {
         const { earnedBadges } = get();
@@ -187,6 +206,9 @@ export const useProgressStore = create<ProgressState>()(
         earnedBadges: s.earnedBadges,
         wotdHistory: s.wotdHistory,
         finalAssessmentResult: s.finalAssessmentResult,
+        certificateEarned: s.certificateEarned,
+        certificateEarnedAt: s.certificateEarnedAt,
+        moduleCelebrated: s.moduleCelebrated,
       }),
     },
   ),

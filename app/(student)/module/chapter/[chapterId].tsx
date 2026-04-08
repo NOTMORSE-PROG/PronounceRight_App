@@ -21,6 +21,10 @@ import SentenceCompletionActivity from '@/components/chapter/SentenceCompletionA
 import VideoRolePlayActivity from '@/components/chapter/VideoRolePlayActivity';
 import ChapterReflectionCard from '@/components/chapter/ChapterReflectionCard';
 import SpeakWordButton from '@/components/ui/SpeakWordButton';
+import BadgeUnlockCelebration from '@/components/ui/BadgeUnlockCelebration';
+import ModuleCompleteCelebration from '@/components/ui/ModuleCompleteCelebration';
+import type { Badge, BadgeType } from '@/types';
+import { ALL_BADGES } from '@/types';
 import { MODULES_DATA } from '@/types';
 import { getChapterContent } from '@/content';
 import { useProgressStore } from '@/stores/progress';
@@ -537,7 +541,31 @@ export default function ChapterScreen() {
 
   // ─── Activity completion (feeds module % progress) ──────────────────────────
   const [activityScores, setActivityScores] = useState<Record<string, number>>({});
-  const { updateChapterProgress, chapterProgress, updateLastStep, touchLastAccessed, recordPractice, checkAndAwardBadges, devUnlockAll } = useProgressStore();
+  const {
+    updateChapterProgress,
+    chapterProgress,
+    updateLastStep,
+    touchLastAccessed,
+    recordPractice,
+    checkAndAwardBadges,
+    devUnlockAll,
+    getModuleCompletion,
+    markCertificateEarned,
+    markModuleCelebrated,
+  } = useProgressStore();
+  const moduleCelebrated = useProgressStore((s) => s.moduleCelebrated);
+  const certificateEarned = useProgressStore((s) => s.certificateEarned);
+
+  // ─── Celebration queue ──────────────────────────────────────────────────────
+  const [pendingBadges, setPendingBadges] = useState<Badge[]>([]);
+  const [pendingModuleComplete, setPendingModuleComplete] = useState<{
+    moduleNumber: number;
+    moduleTitle: string;
+    chaptersCompleted: number;
+    totalChapters: number;
+    badgesEarnedInModule: number;
+    isFinalModule: boolean;
+  } | null>(null);
 
   const scorableIds = sections
     .filter((s): s is { kind: 'activity'; data: Activity } =>
@@ -561,19 +589,77 @@ export default function ChapterScreen() {
   useEffect(() => {
     if (!allDone || !chapterId) return;
     const prev = chapterProgress[chapterId];
+    const justCompleted = avgScore >= 90;
+    const wasAlreadyCompleted = prev?.completed === true;
+
     updateChapterProgress({
       chapterId,
       attempts: (prev?.attempts ?? 0) + 1,
       bestScore: Math.max(avgScore, prev?.bestScore ?? 0),
-      completed: avgScore >= 90,
-      completedAt: avgScore >= 90 ? new Date().toISOString() : (prev?.completedAt ?? null),
+      completed: justCompleted,
+      completedAt: justCompleted ? new Date().toISOString() : (prev?.completedAt ?? null),
       lastStep: prev?.lastStep ?? null,
       lastAccessedAt: prev?.lastAccessedAt ?? null,
     });
     recordPractice();
-    checkAndAwardBadges();
+    const newBadgeTypes = checkAndAwardBadges();
+
+    // Only fire celebrations on first-time chapter completion (not on replays)
+    if (!justCompleted || wasAlreadyCompleted) return;
+
+    // 1) Badge celebration
+    if (newBadgeTypes.length > 0) {
+      const newBadges: Badge[] = newBadgeTypes
+        .map((t: BadgeType) => {
+          const meta = ALL_BADGES.find((b) => b.type === t);
+          if (!meta) return null;
+          return { ...meta, earnedAt: new Date().toISOString() } as Badge;
+        })
+        .filter((b): b is Badge => b !== null);
+      if (newBadges.length > 0) setPendingBadges(newBadges);
+    }
+
+    // 2) Module completion celebration (if this chapter completes the module)
+    const modulePct = getModuleCompletion(module.id, module.chapters.map((c) => c.id));
+    if (modulePct === 100 && !moduleCelebrated[module.id]) {
+      // Count badges earned for this specific module's badge types
+      const moduleBadgeKey = `module_${module.number}_complete` as BadgeType;
+      const badgeCountForModule = newBadgeTypes.includes(moduleBadgeKey) ? 1 : 0;
+
+      // Check if this completes the entire course (all 3 modules done)
+      const allModulesDone = MODULES_WITH_IDS.every((m) =>
+        getModuleCompletion(m.id, m.chapters.map((c) => c.id)) === 100,
+      );
+
+      setPendingModuleComplete({
+        moduleNumber: module.number,
+        moduleTitle: module.title,
+        chaptersCompleted: module.chapters.length,
+        totalChapters: module.chapters.length,
+        badgesEarnedInModule: badgeCountForModule,
+        isFinalModule: allModulesDone,
+      });
+
+      if (allModulesDone && !certificateEarned) {
+        markCertificateEarned();
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allDone]);
+
+  // Sequencing: badge celebration → module celebration → certificate
+  function handleBadgesDismiss() {
+    setPendingBadges([]);
+  }
+
+  function handleModuleCompleteDismiss() {
+    const wasFinal = pendingModuleComplete?.isFinalModule ?? false;
+    if (pendingModuleComplete) markModuleCelebrated(module.id);
+    setPendingModuleComplete(null);
+    if (wasFinal) {
+      router.push('/(student)/certificate' as any);
+    }
+  }
 
   // ─── Reflection data (built when chapter is complete) ────────────────────────
   const [reflectionData, setReflectionData] = useState<ReflectionData | null>(null);
@@ -886,6 +972,21 @@ export default function ChapterScreen() {
 
         </View>
       </ScrollView>
+
+      {/* Celebrations — badge first, then module complete */}
+      {pendingBadges.length > 0 && (
+        <BadgeUnlockCelebration badges={pendingBadges} onClose={handleBadgesDismiss} />
+      )}
+      {pendingBadges.length === 0 && pendingModuleComplete && (
+        <ModuleCompleteCelebration
+          moduleNumber={pendingModuleComplete.moduleNumber}
+          moduleTitle={pendingModuleComplete.moduleTitle}
+          chaptersCompleted={pendingModuleComplete.chaptersCompleted}
+          totalChapters={pendingModuleComplete.totalChapters}
+          badgesEarnedInModule={pendingModuleComplete.badgesEarnedInModule}
+          onClose={handleModuleCompleteDismiss}
+        />
+      )}
     </SafeAreaView>
   );
 }
