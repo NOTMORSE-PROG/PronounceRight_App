@@ -68,6 +68,8 @@ export default function StudentLayout() {
       ))}
       {/* Hide nested routes from tab bar */}
       <Tabs.Screen name="module" options={{ href: null }} />
+      <Tabs.Screen name="about" options={{ href: null }} />
+      <Tabs.Screen name="certificate" options={{ href: null }} />
     </Tabs>
   );
 }

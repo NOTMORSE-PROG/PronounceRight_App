@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, Pressable, Linking, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, Pressable, Linking, ActivityIndicator, Animated, ImageBackground, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import type { WhisperContext, WhisperVadContext } from 'whisper.rn';
@@ -334,13 +334,29 @@ function SelectionPhase({
           <Pressable
             key={i}
             onPress={() => onCardTap(card)}
-            className="flex-1 rounded-2xl items-center justify-center py-8 active:opacity-70"
-            style={{ backgroundColor: accentColor + '18', borderWidth: 2, borderColor: accentColor + '30' }}
+            className="flex-1 rounded-2xl overflow-hidden active:opacity-70"
+            style={{ borderWidth: 2, borderColor: accentColor + '30' }}
           >
-            <Text style={{ fontSize: 32 }}>?</Text>
-            <Text className="text-xs mt-1 font-medium" style={{ color: accentColor }}>
-              Card {i + 1}
-            </Text>
+            {card.backgroundImage ? (
+              <ImageBackground
+                source={card.backgroundImage}
+                className="flex-1 items-center justify-center py-8"
+              >
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
+                <Text style={{ fontSize: 32 }}>?</Text>
+                <Text className="text-xs mt-1 font-medium text-white">Card {i + 1}</Text>
+              </ImageBackground>
+            ) : (
+              <View
+                className="flex-1 items-center justify-center py-8"
+                style={{ backgroundColor: accentColor + '18' }}
+              >
+                <Text style={{ fontSize: 32 }}>?</Text>
+                <Text className="text-xs mt-1 font-medium" style={{ color: accentColor }}>
+                  Card {i + 1}
+                </Text>
+              </View>
+            )}
           </Pressable>
         ))}
       </View>

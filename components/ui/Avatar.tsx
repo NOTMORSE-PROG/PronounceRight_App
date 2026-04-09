@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Image } from 'react-native';
+import { PROFILE_ICONS } from '@/assets/icons/profile';
 
 interface AvatarProps {
   name: string;
   size?: number;
+  iconId?: number;
 }
 
 const GRADIENT_PAIRS = [
@@ -19,16 +21,37 @@ function getColorPair(name: string): [string, string] {
   return GRADIENT_PAIRS[idx] as [string, string];
 }
 
-export default function Avatar({ name, size = 48 }: AvatarProps) {
+export default function Avatar({ name, size = 48, iconId }: AvatarProps) {
+  const [bg] = getColorPair(name);
+  const fontSize = size * 0.36;
+
+  const iconSource = iconId != null ? PROFILE_ICONS[iconId] : undefined;
+
+  if (iconSource) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          overflow: 'hidden',
+        }}
+      >
+        <Image
+          source={iconSource}
+          style={{ width: size, height: size }}
+          resizeMode="cover"
+        />
+      </View>
+    );
+  }
+
   const initials = name
     .split(' ')
     .map((w) => w[0])
     .slice(0, 2)
     .join('')
     .toUpperCase();
-
-  const [bg] = getColorPair(name);
-  const fontSize = size * 0.36;
 
   return (
     <View

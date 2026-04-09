@@ -65,22 +65,26 @@ function BadgeCard({ badge, onDismiss }: { badge: Badge; onDismiss: () => void }
   const scale = useRef(new Animated.Value(0)).current;
   const rotate = useRef(new Animated.Value(0)).current;
   const rayRotate = useRef(new Animated.Value(0)).current;
+  const slideX = useRef(new Animated.Value(60)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.spring(scale, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }),
       Animated.timing(rotate, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(slideX, { toValue: 0, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(fadeIn, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }),
     ]).start();
     Animated.loop(
       Animated.timing(rayRotate, { toValue: 1, duration: 9000, easing: Easing.linear, useNativeDriver: true }),
     ).start();
-  }, [scale, rotate, rayRotate]);
+  }, [scale, rotate, rayRotate, slideX, fadeIn]);
 
   const rotateZ = rotate.interpolate({ inputRange: [0, 1], outputRange: ['-25deg', '0deg'] });
   const rayZ = rayRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
-    <View className="items-center w-full">
+    <Animated.View className="items-center w-full" style={{ opacity: fadeIn, transform: [{ translateX: slideX }] }}>
       {/* Rotating rays behind badge */}
       <View style={{ position: 'absolute', top: 0, alignItems: 'center', justifyContent: 'center', width: 220, height: 220 }}>
         <Animated.View
@@ -139,7 +143,7 @@ function BadgeCard({ badge, onDismiss }: { badge: Badge; onDismiss: () => void }
       >
         <Text className="text-base font-bold" style={{ color: '#D97706' }}>Awesome!</Text>
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -186,7 +190,7 @@ export default function BadgeUnlockCelebration({ badges, onClose }: Props) {
       <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.85)' }}>
         {/* Confetti layer */}
         {Array.from({ length: CONFETTI_COUNT }).map((_, i) => (
-          <ConfettiPiece key={`${index}-${i}`} delay={i * 80} />
+          <ConfettiPiece key={i} delay={i * 80} />
         ))}
 
         <View className="flex-1 items-center justify-center px-6">

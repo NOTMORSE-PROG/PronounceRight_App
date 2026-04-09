@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChapterProgress, Badge, BadgeType, ALL_BADGES } from '@/types';
 import { getNewBadges } from '@/lib/badge-checker';
+import { IS_ADMIN_BUILD } from '@/lib/buildVariant';
 
 interface FinalAssessmentResult {
   bestScore: number;
@@ -47,7 +48,7 @@ const DEFAULT_STATE = {
   earnedBadges: {} as Record<BadgeType, string>,
   wotdHistory: {} as Record<string, number>,
   finalAssessmentResult: null as FinalAssessmentResult | null,
-  certificateEarned: false,
+  certificateEarned: IS_ADMIN_BUILD,
   certificateEarnedAt: null as string | null,
   moduleCelebrated: {} as Record<string, string>,
 };
@@ -56,7 +57,7 @@ export const useProgressStore = create<ProgressState>()(
   persist(
     (set, get) => ({
       ...DEFAULT_STATE,
-      devUnlockAll: false,
+      devUnlockAll: IS_ADMIN_BUILD,
 
       toggleDevUnlock: () => set((s) => ({ devUnlockAll: !s.devUnlockAll })),
 
@@ -199,6 +200,12 @@ export const useProgressStore = create<ProgressState>()(
     {
       name: 'pr_progress',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        if (IS_ADMIN_BUILD && state) {
+          state.certificateEarned = true;
+          state.devUnlockAll = true;
+        }
+      },
       partialize: (s) => ({
         streak: s.streak,
         lastPracticeDate: s.lastPracticeDate,

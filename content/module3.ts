@@ -453,8 +453,8 @@ const m3c3: ChapterContent = {
                 requiresResponse: true,
                 responseHint: '"Hello! We are working on a group project. Do you want to join our group?"',
                 branches: [
-                  { label: 'I said YES', nextStepId: 's1-fy' },
-                  { label: 'I said NO',  nextStepId: 's1-fn' },
+                  { label: 'I said YES', nextStepId: 's1-fy', keywords: ['yes', 'sure', 'would', 'love', 'want', 'can', 'okay', 'of course', 'join', 'like', "i'll", 'id love', 'id like', 'definitely', 'happy', 'glad'] },
+                  { label: 'I said NO',  nextStepId: 's1-fn', keywords: ['no', "don't", 'prefer', 'already', "can't", 'not', 'rather', 'sorry', 'decline', 'unable'] },
                 ],
               },
               {
@@ -541,8 +541,8 @@ const m3c3: ChapterContent = {
                 requiresResponse: true,
                 responseHint: '"What do you think about group work?"',
                 branches: [
-                  { label: 'Positive opinion', nextStepId: 's3-fp' },
-                  { label: 'Negative opinion', nextStepId: 's3-fn' },
+                  { label: 'Positive opinion', nextStepId: 's3-fp', keywords: ['good', 'helpful', 'useful', 'like', 'help', 'share', 'enjoy', 'great', 'love', 'fun', 'together', 'agree', 'learn', 'think it', 'positive', 'benefit', 'improve', 'teamwork'] },
+                  { label: 'Negative opinion', nextStepId: 's3-fn', keywords: ["don't", "doesn't", 'prefer', 'alone', 'challenging', 'hard', 'difficult', 'stressful', 'bad', 'dislike', 'not', 'problem', 'tricky', 'disagree', 'hate', 'boring'] },
                 ],
               },
               {
@@ -590,8 +590,8 @@ const m3c3: ChapterContent = {
                 requiresResponse: true,
                 responseHint: '"Do you like your school? Why?"',
                 branches: [
-                  { label: 'I said YES', nextStepId: 's4-fy' },
-                  { label: 'I said NO',  nextStepId: 's4-fn' },
+                  { label: 'I said YES', nextStepId: 's4-fy', keywords: ['yes', 'sure', 'would', 'love', 'want', 'can', 'okay', 'of course', 'like', "i'll", 'id love', 'id like', 'definitely', 'happy', 'enjoy', 'great'] },
+                  { label: 'I said NO',  nextStepId: 's4-fn', keywords: ['no', "don't", 'prefer', 'already', "can't", 'not', 'rather', 'sorry', 'decline', 'unable', 'dislike', 'hate'] },
                 ],
               },
               {

@@ -4,10 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '@/components/ui/ScreenHeader';
 import BadgeGrid from '@/components/badges/BadgeGrid';
 import { useProgressStore } from '@/stores/progress';
+import { ALL_BADGES, Badge } from '@/types';
 
 export default function BadgesScreen() {
-  const getBadges = useProgressStore((s) => s.getBadges);
-  const badges = getBadges();
+  const earnedBadges = useProgressStore((s) => s.earnedBadges);
+  const badges: Badge[] = ALL_BADGES.map((b) => ({
+    ...b,
+    earnedAt: earnedBadges[b.type] ?? null,
+  }));
   const earnedCount = badges.filter((b) => b.earnedAt !== null).length;
 
   return (

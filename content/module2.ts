@@ -178,6 +178,7 @@ const m2c3: ChapterContent = {
             modelAnswer:
               'I think my favorite hobby is reading books. I enjoy it because I can learn new things and imagine different places. For me, reading is both relaxing and fun.',
             topicKeywords: ['hobby', 'enjoy', 'like', 'play', 'sport', 'activity', 'fun', 'weekend', 'free time', 'favorite'],
+            backgroundImage: require('../assets/images/m2c3/card-1.png'),
           },
           {
             question: 'What do you usually do in your free time?',
@@ -189,6 +190,7 @@ const m2c3: ChapterContent = {
             modelAnswer:
               'I usually watch videos and listen to music in my free time. I enjoy doing these things because they help me relax after school. I think free time is very important for everyone.',
             topicKeywords: ['free time', 'usually', 'relax', 'watch', 'read', 'play', 'listen', 'spend', 'time', 'home'],
+            backgroundImage: require('../assets/images/m2c3/card-2.png'),
           },
           {
             question: 'What is something you really like, and why do you like it?',
@@ -200,6 +202,7 @@ const m2c3: ChapterContent = {
             modelAnswer:
               'I really like listening to music. I think music makes me feel happy and calm, especially after a hard day. For me, music is one of the best things in life.',
             topicKeywords: ['like', 'love', 'enjoy', 'music', 'games', 'food', 'movie', 'book', 'sport', 'favorite', 'really'],
+            backgroundImage: require('../assets/images/m2c3/card-3.png'),
           },
         ],
         sentenceCount: { min: 2, max: 3 },

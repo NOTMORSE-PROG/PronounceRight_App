@@ -5,6 +5,7 @@ import {
   Pressable,
   Linking,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
@@ -14,6 +15,7 @@ import { WHISPER_RECORDING_OPTIONS } from '@/lib/recording-options';
 import { keepRecording } from '@/lib/recordings-service';
 import { saveActivityCompletion, getActivityCompletion } from '@/lib/db';
 import VIDEO_REGISTRY, { VIDEO_END_FRAMES } from '@/assets/videos/m3c3/index';
+import { transcribeFreeSpeech } from '@/lib/engine/transcribe';
 import type { VideoRolePlayScenario, VideoRolePlayStep } from '@/types/content';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -23,7 +25,7 @@ type Phase =
   | 'video_loading'
   | 'video_playing'
   | 'recording'
-  | 'branch_select'
+  | 'transcribing'
   | 'scenario_done'
   | 'all_done';
 
@@ -78,6 +80,8 @@ export default function VideoRolePlayActivity({
   accentColor = '#FF9800',
   studentId,
   activityId,
+  whisperCtx,
+  vadCtx,
   onComplete,
   onAdvance,
 }: Props) {
@@ -97,6 +101,8 @@ export default function VideoRolePlayActivity({
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingIndexRef = useRef(0);
+  const stepHistoryRef = useRef<string[]>([]);
+  const [canGoBack, setCanGoBack] = useState(false);
 
   // ── Animation ────────────────────────────────────────────────────────────────
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -151,18 +157,37 @@ export default function VideoRolePlayActivity({
   const scenario = scenarios[scenarioIndex]!;
   const currentStep = currentStepId ? findStep(scenario, currentStepId) : undefined;
 
+  // ── Step history helpers ──────────────────────────────────────────────────────
+  const pushHistory = useCallback((stepId: string) => {
+    stepHistoryRef.current.push(stepId);
+    setCanGoBack(true);
+  }, []);
+
+  const popHistory = useCallback((): string | undefined => {
+    const prev = stepHistoryRef.current.pop();
+    setCanGoBack(stepHistoryRef.current.length > 0);
+    return prev;
+  }, []);
+
+  const resetHistory = useCallback(() => {
+    stepHistoryRef.current = [];
+    setCanGoBack(false);
+  }, []);
+
   // ── Start a scenario ──────────────────────────────────────────────────────────
   const startScenario = useCallback((index: number) => {
     const s = scenarios[index]!;
     setScenarioIndex(index);
     setCurrentStepId(s.entryStepId);
     recordingIndexRef.current = 0;
+    resetHistory();
     setPhase('video_loading');
-  }, [scenarios]);
+  }, [scenarios, resetHistory]);
 
   // ── Video finished playing ────────────────────────────────────────────────────
   const handleVideoFinished = useCallback(() => {
     if (!currentStep) return;
+    pushHistory(currentStep.id);
     if (currentStep.requiresResponse) {
       setPhase('recording');
     } else if (currentStep.nextStepId) {
@@ -173,7 +198,7 @@ export default function VideoRolePlayActivity({
       handleScenarioDone();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep]);
+  }, [currentStep, pushHistory]);
 
   // ── Start recording ───────────────────────────────────────────────────────────
   const handleStartRecording = useCallback(async () => {
@@ -208,7 +233,17 @@ export default function VideoRolePlayActivity({
     if (!currentStep) return;
 
     if (currentStep.branches && currentStep.branches.length > 0) {
-      setPhase('branch_select');
+      // Auto-detect the branch from the student's speech
+      let nextStepId = currentStep.branches[0]!.nextStepId;
+      if (whisperCtx && uri) {
+        setPhase('transcribing');
+        try {
+          const result = await transcribeFreeSpeech(whisperCtx, uri, vadCtx);
+          nextStepId = detectBranch(result.cleanedTranscript || result.transcript, currentStep.branches);
+        } catch { /* fall back to first branch */ }
+      }
+      setCurrentStepId(nextStepId);
+      setPhase('video_loading');
     } else if (currentStep.nextStepId) {
       setCurrentStepId(currentStep.nextStepId);
       setPhase('video_loading');
@@ -216,13 +251,20 @@ export default function VideoRolePlayActivity({
       handleScenarioDone();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, studentId, activityId]);
+  }, [currentStep, studentId, activityId, whisperCtx, vadCtx]);
 
-  // ── Branch selection ──────────────────────────────────────────────────────────
-  const handleBranchSelect = useCallback((nextStepId: string) => {
-    setCurrentStepId(nextStepId);
+  // ── Back navigation ───────────────────────────────────────────────────────────
+  const handleBack = useCallback(async () => {
+    const prev = popHistory();
+    if (!prev) return;
+    if (isRecording) {
+      await recordingRef.current?.stopAndUnloadAsync().catch(() => {});
+      recordingRef.current = null;
+      setIsRecording(false);
+    }
+    setCurrentStepId(prev);
     setPhase('video_loading');
-  }, []);
+  }, [isRecording, popHistory]);
 
   // ── Scenario done ─────────────────────────────────────────────────────────────
   const handleScenarioDone = useCallback(() => {
@@ -402,15 +444,29 @@ export default function VideoRolePlayActivity({
   }
 
   // ── Active scenario phases ────────────────────────────────────────────────────
+  const showBackButton = canGoBack && (phase === 'video_loading' || phase === 'video_playing' || phase === 'recording' || phase === 'transcribing');
+
   return (
     <View className="bg-white rounded-2xl border border-border p-5 mb-3">
       <ActivityHeader title={activityTitle} accentColor={accentColor} />
 
       {/* Scenario header */}
       <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-xs font-bold" style={{ color: accentColor }}>
-          {scenario.title}
-        </Text>
+        <View className="flex-row items-center gap-2">
+          {showBackButton && (
+            <Pressable
+              onPress={handleBack}
+              className="flex-row items-center gap-1 active:opacity-60"
+              hitSlop={8}
+            >
+              <Ionicons name="chevron-back" size={14} color={accentColor} />
+              <Text className="text-xs font-semibold" style={{ color: accentColor }}>Back</Text>
+            </Pressable>
+          )}
+          <Text className="text-xs font-bold" style={{ color: accentColor }}>
+            {scenario.title}
+          </Text>
+        </View>
         <View className="flex-row gap-1">
           {scenarios.map((_, i) => (
             <View
@@ -451,13 +507,12 @@ export default function VideoRolePlayActivity({
         />
       )}
 
-      {/* ── BRANCH SELECT ────────────────────────────────────────────────────── */}
-      {phase === 'branch_select' && currentStep?.branches && (
-        <BranchSelect
-          step={currentStep}
-          accentColor={accentColor}
-          onSelect={handleBranchSelect}
-        />
+      {/* ── TRANSCRIBING ─────────────────────────────────────────────────────── */}
+      {phase === 'transcribing' && (
+        <View className="items-center py-8 gap-3">
+          <ActivityIndicator size="large" color={accentColor} />
+          <Text className="text-sm text-text-secondary">Analyzing your response…</Text>
+        </View>
       )}
     </View>
   );
@@ -668,38 +723,21 @@ function RecordingPhase({
   );
 }
 
-// ─── BranchSelect ─────────────────────────────────────────────────────────────
+// ─── detectBranch ─────────────────────────────────────────────────────────────
 
-function BranchSelect({
-  step,
-  accentColor,
-  onSelect,
-}: {
-  step: VideoRolePlayStep;
-  accentColor: string;
-  onSelect: (nextStepId: string) => void;
-}) {
-  return (
-    <View className="gap-3">
-      <View className="rounded-xl p-3" style={{ backgroundColor: accentColor + '10' }}>
-        <Text className="text-sm font-semibold text-text-primary text-center">
-          Which best describes your response?
-        </Text>
-      </View>
-      <View className="gap-2">
-        {step.branches!.map((branch) => (
-          <Pressable
-            key={branch.nextStepId}
-            onPress={() => onSelect(branch.nextStepId)}
-            className="rounded-xl py-4 items-center active:opacity-80 border"
-            style={{ borderColor: accentColor, backgroundColor: accentColor + '10' }}
-          >
-            <Text className="font-bold text-base" style={{ color: accentColor }}>
-              {branch.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
+function detectBranch(
+  transcript: string,
+  branches: NonNullable<VideoRolePlayStep['branches']>,
+): string {
+  const lower = transcript.toLowerCase();
+  let best = branches[0]!.nextStepId;
+  let bestScore = -1;
+  for (const branch of branches) {
+    const score = (branch.keywords ?? []).filter(kw => lower.includes(kw)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = branch.nextStepId;
+    }
+  }
+  return best;
 }

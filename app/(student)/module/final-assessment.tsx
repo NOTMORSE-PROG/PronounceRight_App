@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Animated,
   Linking,
+  ImageBackground,
+  StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -35,6 +37,7 @@ interface CueCard {
   topic: string;
   question: string;
   bullets: string[];
+  backgroundImage?: number; // result of require() for a local asset
 }
 
 const CUE_CARDS: CueCard[] = [
@@ -48,6 +51,7 @@ const CUE_CARDS: CueCard[] = [
       'What they have done for you',
       'Why they have been so influential',
     ],
+    backgroundImage: require('../../../assets/images/final-assessment/card-1.png'),
   },
   {
     id: 'card_b',
@@ -59,6 +63,7 @@ const CUE_CARDS: CueCard[] = [
       'What you did there',
       'Why you found it interesting',
     ],
+    backgroundImage: require('../../../assets/images/final-assessment/card-2.png'),
   },
   {
     id: 'card_c',
@@ -70,6 +75,7 @@ const CUE_CARDS: CueCard[] = [
       'Who you do it with',
       'Why you enjoy it',
     ],
+    backgroundImage: require('../../../assets/images/final-assessment/card-3.png'),
   },
 ];
 
@@ -399,13 +405,29 @@ function CardTile({
     return (
       <Pressable
         onPress={onReveal}
-        className="rounded-2xl items-center justify-center py-8 active:opacity-70"
-        style={{ backgroundColor: ACCENT_COLOR + '18', borderWidth: 2, borderColor: ACCENT_COLOR + '30' }}
+        className="rounded-2xl overflow-hidden active:opacity-70"
+        style={{ borderWidth: 2, borderColor: ACCENT_COLOR + '30' }}
       >
-        <Text style={{ fontSize: 32 }}>?</Text>
-        <Text className="text-xs mt-1 font-medium" style={{ color: ACCENT_COLOR }}>
-          Card {index + 1}
-        </Text>
+        {card.backgroundImage ? (
+          <ImageBackground
+            source={card.backgroundImage}
+            className="items-center justify-center py-8"
+          >
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
+            <Text style={{ fontSize: 32 }}>?</Text>
+            <Text className="text-xs mt-1 font-medium text-white">Card {index + 1}</Text>
+          </ImageBackground>
+        ) : (
+          <View
+            className="items-center justify-center py-8"
+            style={{ backgroundColor: ACCENT_COLOR + '18' }}
+          >
+            <Text style={{ fontSize: 32 }}>?</Text>
+            <Text className="text-xs mt-1 font-medium" style={{ color: ACCENT_COLOR }}>
+              Card {index + 1}
+            </Text>
+          </View>
+        )}
       </Pressable>
     );
   }

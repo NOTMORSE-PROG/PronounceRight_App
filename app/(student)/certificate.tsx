@@ -7,29 +7,13 @@ import { captureRef } from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { useAuthStore } from '@/stores/auth';
-import { useProgressStore } from '@/stores/progress';
 
 const CERT_ASPECT = 4 / 3; // matches the certificate image
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-function formatDate(iso: string | null): { day: string; month: string; year: string } {
-  const d = iso ? new Date(iso) : new Date();
-  return {
-    day: String(d.getDate()),
-    month: MONTH_NAMES[d.getMonth()] ?? '',
-    year: String(d.getFullYear()),
-  };
-}
 
 export default function CertificateScreen() {
   const params = useLocalSearchParams<{ from?: string }>();
   const fromProfile = params.from === 'profile';
   const fullName = useAuthStore((s) => s.user?.fullName) ?? 'Student';
-  const certificateEarnedAt = useProgressStore((s) => s.certificateEarnedAt);
-  const { day, month, year } = formatDate(certificateEarnedAt);
 
   const certRef = useRef<View>(null);
   const [busy, setBusy] = useState<'download' | 'share' | null>(null);
@@ -139,27 +123,6 @@ export default function CertificateScreen() {
                 }}
               >
                 {fullName}
-              </Text>
-            </View>
-
-            {/* Date line — "Given this DAY day of MONTH, YEAR" */}
-            <View
-              style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                bottom: '14%',
-                alignItems: 'center',
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: certWidth * 0.022,
-                  color: '#1565C0',
-                  fontWeight: '600',
-                }}
-              >
-                Given this {day} day of {month}, {year}
               </Text>
             </View>
           </ImageBackground>

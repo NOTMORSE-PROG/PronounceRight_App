@@ -8,6 +8,7 @@ import ScreenHeader from '@/components/ui/ScreenHeader';
 import ModuleCard from '@/components/module/ModuleCard';
 import { useProgressStore } from '@/stores/progress';
 import { MODULES_DATA } from '@/types';
+import { IS_ADMIN_BUILD } from '@/lib/buildVariant';
 
 const MODULES_WITH_IDS = MODULES_DATA.map((m, i) => ({
   ...m,
@@ -37,15 +38,21 @@ export default function ModulesScreen() {
           </View>
 
           {/* Unlock all chapters toggle */}
-          <Pressable
-            onPress={toggleDevUnlock}
-            className="mx-4 mb-3 px-3 py-2 rounded-lg self-start"
-            style={{ backgroundColor: devUnlockAll ? '#4CAF50' : '#9E9E9E' }}
-          >
-            <Text className="text-white text-xs font-bold">
-              {devUnlockAll ? 'All Chapters Unlocked' : 'Unlock All Chapters'}
-            </Text>
-          </Pressable>
+          {IS_ADMIN_BUILD ? (
+            <View className="mx-4 mb-3 px-3 py-2 rounded-lg self-start" style={{ backgroundColor: '#4CAF50' }}>
+              <Text className="text-white text-xs font-bold">Admin Demo Mode</Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={toggleDevUnlock}
+              className="mx-4 mb-3 px-3 py-2 rounded-lg self-start"
+              style={{ backgroundColor: devUnlockAll ? '#4CAF50' : '#9E9E9E' }}
+            >
+              <Text className="text-white text-xs font-bold">
+                {devUnlockAll ? 'All Chapters Unlocked' : 'Unlock All Chapters'}
+              </Text>
+            </Pressable>
+          )}
 
           {/* Module Cards */}
           {MODULES_WITH_IDS.map((module, index) => (

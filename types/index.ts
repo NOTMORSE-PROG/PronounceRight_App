@@ -8,6 +8,7 @@ export interface Student {
   className?: string;
   avatarSeed: string;
   createdAt: string;
+  profileIconId?: number;
 }
 
 export type AuthUser = Student;

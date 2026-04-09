@@ -114,6 +114,7 @@ export interface PickAndSpeakCueCard {
   keyPhrases: string[];    // shown during prep time only
   modelAnswer: string;     // example answer shown post-recording with speaker button
   topicKeywords: string[]; // for content relevance scoring
+  backgroundImage?: number; // optional local image asset (require() result)
 }
 
 export interface PickAndSpeakActivity extends BaseActivity {
@@ -174,8 +175,8 @@ export interface VideoRolePlayStep {
   requiresResponse: boolean;
   /** Hint shown during the recording phase */
   responseHint?: string;
-  /** If set, show choice buttons after recording; each leads to a different next step */
-  branches?: { label: string; nextStepId: string }[];
+  /** If set, auto-detect the branch from the student's transcript after recording */
+  branches?: { label: string; nextStepId: string; keywords?: string[] }[];
   /** For linear flow: the next step's id (omitted on terminal steps) */
   nextStepId?: string;
 }
