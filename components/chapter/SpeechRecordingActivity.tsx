@@ -51,6 +51,7 @@ export default function SpeechRecordingActivity({
   const [loadingRecordings, setLoadingRecordings] = useState(true);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const onCompleteCalledRef = useRef(false);
 
   // Load mic permission + any saved recordings on mount
   useEffect(() => {
@@ -82,7 +83,10 @@ export default function SpeechRecordingActivity({
     const allKept = statuses.every((s) => s === 'kept');
     if (allKept && !completed) {
       setCompleted(true);
-      onComplete?.();
+      if (!onCompleteCalledRef.current) {
+        onCompleteCalledRef.current = true;
+        onComplete?.();
+      }
     } else if (!allKept && completed) {
       setCompleted(false);
     }

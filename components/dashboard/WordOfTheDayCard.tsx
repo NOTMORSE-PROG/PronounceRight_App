@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { View, Text, Pressable, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { WHISPER_RECORDING_OPTIONS } from '@/lib/recording-options';
@@ -73,7 +73,14 @@ function WordRecorder({ word, onResult }: WordRecorderProps) {
   const model = useWhisperModel();
   const [state, setState] = useState<'idle' | 'recording' | 'assessing'>('idle');
   const [noSpeechMsg, setNoSpeechMsg] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
+
+  useEffect(() => {
+    Audio.requestPermissionsAsync().then(({ granted }) => setPermissionGranted(granted));
+    return () => { recordingRef.current?.stopAndUnloadAsync(); };
+  }, []);
 
   if (model.status === 'loading' || model.status === 'idle') {
     return (
@@ -92,12 +99,31 @@ function WordRecorder({ word, onResult }: WordRecorderProps) {
     );
   }
 
+  if (permissionGranted === false) {
+    return (
+      <View className="items-center py-3 gap-2">
+        <Ionicons name="mic-off-outline" size={28} color="#90A4AE" />
+        <Text className="text-xs text-text-secondary text-center">
+          Microphone access is required.
+        </Text>
+        <Pressable
+          className="rounded-xl px-5 py-2 active:opacity-70"
+          style={{ backgroundColor: ACCENT }}
+          onPress={() => Linking.openSettings()}
+        >
+          <Text className="text-white font-semibold text-xs">Open Settings</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   const { ctx, vadCtx } = model;
 
   async function handleMicPress() {
     if (state === 'idle') {
       try {
         setNoSpeechMsg(false);
+        setErrorMsg(null);
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
         const { recording } = await Audio.Recording.createAsync(
           WHISPER_RECORDING_OPTIONS,
@@ -105,7 +131,8 @@ function WordRecorder({ word, onResult }: WordRecorderProps) {
         recordingRef.current = recording;
         setState('recording');
       } catch {
-        /* permission denied or device error — ignore */
+        setState('idle');
+        setErrorMsg('Could not start recording. Check microphone permissions.');
       }
     } else if (state === 'recording') {
       try {
@@ -138,6 +165,9 @@ function WordRecorder({ word, onResult }: WordRecorderProps) {
     <View className="items-center py-2 gap-2">
       {noSpeechMsg && (
         <Text className="text-xs text-amber-600 mb-1">No speech detected — try again.</Text>
+      )}
+      {errorMsg && (
+        <Text className="text-xs text-red-500 mb-1 text-center">{errorMsg}</Text>
       )}
 
       <Pressable

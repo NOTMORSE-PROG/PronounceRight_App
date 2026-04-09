@@ -335,12 +335,12 @@ function SelectionPhase({
             key={i}
             onPress={() => onCardTap(card)}
             className="flex-1 rounded-2xl overflow-hidden active:opacity-70"
-            style={{ borderWidth: 2, borderColor: accentColor + '30' }}
+            style={{ borderWidth: 2, borderColor: accentColor + '30', height: 120 }}
           >
             {card.backgroundImage ? (
               <ImageBackground
                 source={card.backgroundImage}
-                className="flex-1 items-center justify-center py-8"
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
               >
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
                 <Text style={{ fontSize: 32 }}>?</Text>
@@ -348,8 +348,7 @@ function SelectionPhase({
               </ImageBackground>
             ) : (
               <View
-                className="flex-1 items-center justify-center py-8"
-                style={{ backgroundColor: accentColor + '18' }}
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: accentColor + '18' }}
               >
                 <Text style={{ fontSize: 32 }}>?</Text>
                 <Text className="text-xs mt-1 font-medium" style={{ color: accentColor }}>

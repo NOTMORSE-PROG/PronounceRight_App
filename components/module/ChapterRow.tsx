@@ -70,13 +70,20 @@ export default function ChapterRow({
         )}
       </View>
 
-      {/* Right indicator */}
+      {/* Score + right indicator */}
       {!isLocked && (
-        <Ionicons
-          name={isCompleted ? 'checkmark-circle' : 'chevron-forward'}
-          size={20}
-          color={isCompleted ? '#10B981' : '#90A4AE'}
-        />
+        <View className="flex-row items-center gap-2">
+          {isCompleted && progress != null && progress.bestScore !== null && (
+            <Text style={{ color: '#10B981', fontWeight: '600', fontSize: 12 }}>
+              {progress.bestScore}%
+            </Text>
+          )}
+          <Ionicons
+            name={isCompleted ? 'checkmark-circle' : 'chevron-forward'}
+            size={20}
+            color={isCompleted ? '#10B981' : '#90A4AE'}
+          />
+        </View>
       )}
     </Pressable>
   );

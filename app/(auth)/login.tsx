@@ -309,7 +309,7 @@ export default function LoginScreen() {
                 {/* Footer */}
                 <Animated.View style={[{ marginTop: 24 }, footerStyle]}>
                   <Text style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-                    SpeakRight · Grade 10 Pronunciation App
+                    Speak Right · Speak Up, Speak Right
                   </Text>
                 </Animated.View>
               </View>

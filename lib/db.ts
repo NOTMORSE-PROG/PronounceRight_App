@@ -21,6 +21,14 @@ export async function initDB(): Promise<void> {
       class_name TEXT NOT NULL DEFAULT 'Grade 10',
       created_at TEXT NOT NULL
     );
+  `);
+  // Migration: add profile_icon_id if this is an existing database without it
+  try {
+    await database.execAsync(`ALTER TABLE students ADD COLUMN profile_icon_id INTEGER;`);
+  } catch {
+    // column already exists — safe to ignore
+  }
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS recordings (
       id TEXT PRIMARY KEY,
       student_id TEXT NOT NULL,
@@ -60,6 +68,7 @@ export interface StudentRow {
   pin_salt: string;
   full_name: string;
   class_name: string;
+  profile_icon_id?: number | null;
   created_at: string;
 }
 
@@ -77,6 +86,14 @@ export async function createStudent(student: StudentRow): Promise<void> {
       student.class_name,
       student.created_at,
     ]
+  );
+}
+
+export async function updateStudentProfileIcon(id: string, profileIconId: number | null): Promise<void> {
+  const database = getDb();
+  await database.runAsync(
+    `UPDATE students SET profile_icon_id = ? WHERE id = ?;`,
+    [profileIconId, id]
   );
 }
 

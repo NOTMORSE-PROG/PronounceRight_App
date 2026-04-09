@@ -581,21 +581,28 @@ export default function ChapterScreen() {
     allActivityIds.length > 0 &&
     allActivityIds.every((id) => activityScores[id] !== undefined);
 
-  const avgScore =
-    scorableIds.length > 0
-      ? Math.round(scorableIds.reduce((sum, id) => sum + (activityScores[id] ?? 0), 0) / scorableIds.length)
-      : 100;
+  const hasScoring = scorableIds.length > 0;
+  const avgScore = hasScoring
+    ? Math.round(scorableIds.reduce((sum, id) => sum + (activityScores[id] ?? 0), 0) / scorableIds.length)
+    : 0;
 
   useEffect(() => {
     if (!allDone || !chapterId) return;
     const prev = chapterProgress[chapterId];
-    const justCompleted = avgScore >= 90;
+    const justCompleted = hasScoring ? avgScore >= 90 : true;
     const wasAlreadyCompleted = prev?.completed === true;
+
+    // Skip if this is just a remount restore (already completed, no score improvement)
+    if (wasAlreadyCompleted) {
+      const prevBest = prev?.bestScore ?? null;
+      const newBest = hasScoring ? Math.max(avgScore, prevBest ?? 0) : prevBest;
+      if (newBest === prevBest) return;
+    }
 
     updateChapterProgress({
       chapterId,
       attempts: (prev?.attempts ?? 0) + 1,
-      bestScore: Math.max(avgScore, prev?.bestScore ?? 0),
+      bestScore: hasScoring ? Math.max(avgScore, prev?.bestScore ?? 0) : (prev?.bestScore ?? null),
       completed: justCompleted,
       completedAt: justCompleted ? new Date().toISOString() : (prev?.completedAt ?? null),
       lastStep: prev?.lastStep ?? null,

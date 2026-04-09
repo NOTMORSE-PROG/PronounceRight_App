@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { AuthUser } from '@/types';
+import { updateStudentProfileIcon } from '@/lib/auth-service';
 
 const USER_KEY = 'pr_user';
 const ONBOARDED_KEY = 'pr_onboarded';
@@ -60,6 +61,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const updated = { ...user, ...partial };
     set({ user: updated });
     SecureStore.setItemAsync(USER_KEY, JSON.stringify(updated)).catch(() => {});
+    if ('profileIconId' in partial && user.profileIconId !== partial.profileIconId) {
+      updateStudentProfileIcon(updated.id, partial.profileIconId ?? null).catch(() => {});
+    }
   },
 
   logout: async () => {

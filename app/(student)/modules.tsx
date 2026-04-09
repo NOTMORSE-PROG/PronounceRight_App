@@ -15,7 +15,7 @@ const MODULES_WITH_IDS = MODULES_DATA.map((m, i) => ({
 }));
 
 export default function ModulesScreen() {
-  const { getModuleCompletion, devUnlockAll, toggleDevUnlock, finalAssessmentResult } = useProgressStore();
+  const { getModuleCompletion, devUnlockAll, finalAssessmentResult } = useProgressStore();
 
   const allModulesComplete = devUnlockAll || MODULES_WITH_IDS.every(
     (m) => getModuleCompletion(m.id, m.chapters.map((c) => c.id)) === 100,
@@ -46,21 +46,11 @@ export default function ModulesScreen() {
             </Text>
           </LinearGradient>
 
-          {/* Unlock all chapters toggle */}
-          {IS_ADMIN_BUILD ? (
+          {/* Unlock all chapters toggle — admin builds only */}
+          {IS_ADMIN_BUILD && (
             <View className="mx-4 mb-3 px-3 py-2 rounded-lg self-start" style={{ backgroundColor: '#4CAF50' }}>
               <Text className="text-white text-xs font-bold">Admin Demo Mode</Text>
             </View>
-          ) : (
-            <Pressable
-              onPress={toggleDevUnlock}
-              className="mx-4 mb-3 px-3 py-2 rounded-lg self-start"
-              style={{ backgroundColor: devUnlockAll ? '#4CAF50' : '#9E9E9E' }}
-            >
-              <Text className="text-white text-xs font-bold">
-                {devUnlockAll ? 'All Chapters Unlocked' : 'Unlock All Chapters'}
-              </Text>
-            </Pressable>
           )}
 
           {/* Module Cards with staggered entrance */}

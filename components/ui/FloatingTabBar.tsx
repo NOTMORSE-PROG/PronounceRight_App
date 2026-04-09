@@ -118,6 +118,8 @@ export default function FloatingTabBar({ state, descriptors, navigation }: Botto
     transform: [{ translateX: pillX.value }],
   }));
 
+  if (activeVisibleIndex < 0) return null;
+
   return (
     <View
       style={{

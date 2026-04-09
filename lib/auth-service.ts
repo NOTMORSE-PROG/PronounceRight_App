@@ -1,6 +1,8 @@
 import * as Crypto from 'expo-crypto';
-import { createStudent, findStudentByUsername } from './db';
+import { createStudent, findStudentByUsername, updateStudentProfileIcon } from './db';
 import type { AuthUser } from '@/types';
+
+export { updateStudentProfileIcon };
 
 async function hashPin(salt: string, pin: string): Promise<string> {
   return Crypto.digestStringAsync(
@@ -86,6 +88,7 @@ export async function loginStudent(
     classId: undefined,
     className: row.class_name,
     avatarSeed: row.full_name.charAt(0).toUpperCase(),
+    profileIconId: row.profile_icon_id ?? undefined,
     createdAt: row.created_at,
   };
 

@@ -27,8 +27,8 @@ export function getNewBadges(ctx: BadgeCheckContext): BadgeType[] {
 
   const should = (type: BadgeType) => !earnedBadges[type];
 
-  // first_word — any chapter attempted
-  if (should('first_word') && chapters.some((p) => p.attempts > 0)) {
+  // first_word — any chapter attempted with a real scored assessment
+  if (should('first_word') && chapters.some((p) => p.attempts > 0 && p.bestScore !== null)) {
     earned.push('first_word');
   }
 
@@ -44,7 +44,9 @@ export function getNewBadges(ctx: BadgeCheckContext): BadgeType[] {
 
   // sentence_starter — attempted any chapter with sentence-level activities
   if (should('sentence_starter')) {
-    const started = [...SENTENCE_CHAPTERS].some((id) => chapterProgress[id]?.attempts > 0);
+    const started = [...SENTENCE_CHAPTERS].some(
+      (id) => chapterProgress[id]?.attempts > 0 && chapterProgress[id]?.bestScore !== null,
+    );
     if (started) earned.push('sentence_starter');
   }
 
@@ -59,8 +61,8 @@ export function getNewBadges(ctx: BadgeCheckContext): BadgeType[] {
     }
   }
 
-  // no_replays — passed a chapter on the first attempt
-  if (should('no_replays') && chapters.some((p) => p.completed && p.attempts === 1)) {
+  // no_replays — passed a chapter on the first attempt (requires real scoring)
+  if (should('no_replays') && chapters.some((p) => p.completed && p.attempts === 1 && p.bestScore !== null)) {
     earned.push('no_replays');
   }
 
@@ -84,13 +86,14 @@ export function getNewBadges(ctx: BadgeCheckContext): BadgeType[] {
     earned.push('module_2_complete');
   }
 
-  // speakright_master — all chapters completed with 85%+ average
+  // speakright_master — all chapters completed with 85%+ average (scored chapters only)
   if (should('speakright_master')) {
     const allComplete = ALL_CHAPTER_IDS.every((id) => chapterProgress[id]?.completed);
     if (allComplete) {
-      const avg =
-        ALL_CHAPTER_IDS.reduce((sum, id) => sum + (chapterProgress[id]!.bestScore ?? 0), 0) /
-        ALL_CHAPTER_IDS.length;
+      const scoredChapters = ALL_CHAPTER_IDS.filter((id) => chapterProgress[id]?.bestScore !== null);
+      const avg = scoredChapters.length > 0
+        ? scoredChapters.reduce((sum, id) => sum + chapterProgress[id]!.bestScore!, 0) / scoredChapters.length
+        : 0;
       if (avg >= 85) earned.push('speakright_master');
     }
   }
