@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import ScreenHeader from '@/components/ui/ScreenHeader';
 import ModuleCard from '@/components/module/ModuleCard';
 import { useProgressStore } from '@/stores/progress';
 import { MODULES_DATA } from '@/types';
@@ -24,18 +23,28 @@ export default function ModulesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface-page" edges={['top']}>
-      <ScreenHeader title="My Modules" showLogo />
-
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 88 }}
+      >
         <View className="py-4">
 
-          {/* Subheader */}
-          <View className="px-4 mb-4">
-            <Text className="text-sm text-text-secondary leading-relaxed">
-              Work through each module to master English pronunciation — from individual sounds
-              to confident, natural speech.
+          {/* Gradient hero card */}
+          <LinearGradient
+            colors={['#0D47A1', '#1565C0', '#42A5F5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ marginHorizontal: 16, borderRadius: 20, padding: 20, marginBottom: 16 }}
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>
+              Your Learning Path
             </Text>
-          </View>
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>My Modules</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 6, lineHeight: 18 }}>
+              Master English pronunciation — from individual sounds to confident, natural speech.
+            </Text>
+          </LinearGradient>
 
           {/* Unlock all chapters toggle */}
           {IS_ADMIN_BUILD ? (
@@ -54,7 +63,7 @@ export default function ModulesScreen() {
             </Pressable>
           )}
 
-          {/* Module Cards */}
+          {/* Module Cards with staggered entrance */}
           {MODULES_WITH_IDS.map((module, index) => (
             <ModuleCard
               key={module.id}
@@ -71,13 +80,23 @@ export default function ModulesScreen() {
                   MODULES_WITH_IDS[index - 1]!.chapters.map((c) => c.id),
                 ) < 100
               }
+              entranceDelay={index * 120}
             />
           ))}
 
           {/* Final Assessment Card */}
-          <View className="mx-4 mb-6 rounded-2xl overflow-hidden">
+          <View
+            className="mx-4 mb-6 rounded-2xl overflow-hidden"
+            style={{
+              elevation: 12,
+              shadowColor: '#FF9800',
+              shadowOpacity: 0.35,
+              shadowRadius: 16,
+              shadowOffset: { width: 0, height: 4 },
+            }}
+          >
             <LinearGradient
-              colors={['#FF9800', '#FB8C00']}
+              colors={['#FFB300', '#FF9800', '#E65100']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{ borderRadius: 16, padding: 20 }}

@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { Badge } from '@/types';
 
 interface BadgeCardProps {
@@ -18,21 +20,64 @@ export default function BadgeCard({ badge }: BadgeCardProps) {
   return (
     <View
       className={`rounded-2xl p-4 border items-center ${
-        earned
-          ? 'bg-white border-primary-100 shadow-card'
-          : 'bg-gray-50 border-gray-200 opacity-60'
+        earned ? 'bg-white border-primary-100' : 'bg-gray-50 border-gray-200 opacity-60'
       }`}
-      style={{ minHeight: 140 }}
+      style={
+        earned
+          ? {
+              minHeight: 140,
+              elevation: 4,
+              shadowColor: '#6B21D4',
+              shadowOpacity: 0.22,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 2 },
+            }
+          : { minHeight: 140 }
+      }
     >
-      {/* Icon */}
-      <View
-        className={`w-14 h-14 rounded-full items-center justify-center mb-3 ${
-          earned ? 'bg-primary-50' : 'bg-gray-100'
-        }`}
-      >
-        <Text style={{ fontSize: 28, filter: earned ? undefined : 'grayscale(100%)' }}>
-          {badge.icon}
-        </Text>
+      {/* Icon circle */}
+      <View style={{ position: 'relative', marginBottom: 12 }}>
+        {earned ? (
+          <View style={{ width: 56, height: 56, borderRadius: 28, overflow: 'hidden' }}>
+            <LinearGradient
+              colors={['#6B21D4', '#2D0A6B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ fontSize: 28, textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center' }}>
+                {badge.icon}
+              </Text>
+            </LinearGradient>
+          </View>
+        ) : (
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 28, textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center' }}>
+              {badge.icon}
+            </Text>
+          </View>
+        )}
+
+        {/* Lock overlay for locked badges */}
+        {!earned && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 20,
+              height: 20,
+              borderRadius: 10,
+              backgroundColor: '#9E9E9E',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1.5,
+              borderColor: '#fff',
+            }}
+          >
+            <Ionicons name="lock-closed" size={10} color="#fff" />
+          </View>
+        )}
       </View>
 
       {/* Label */}

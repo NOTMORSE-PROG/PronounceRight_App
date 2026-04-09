@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ScreenHeader from '@/components/ui/ScreenHeader';
+import BadgesHero from '@/components/badges/BadgesHero';
 import BadgeGrid from '@/components/badges/BadgeGrid';
 import { useProgressStore } from '@/stores/progress';
 import { ALL_BADGES, Badge } from '@/types';
@@ -15,42 +15,25 @@ export default function BadgesScreen() {
   const earnedCount = badges.filter((b) => b.earnedAt !== null).length;
 
   return (
-    <SafeAreaView className="flex-1 bg-surface-page" edges={['top']}>
-      <ScreenHeader
-        title="Achievements"
-        showLogo
-        rightElement={
-          <View className="bg-primary-50 rounded-full px-3 py-1">
-            <Text className="text-xs font-bold text-primary-700">
-              {earnedCount} / {badges.length}
-            </Text>
-          </View>
-        }
-      />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#2D0A6B' }} edges={['top']}>
+      {/* Hero — outside scroll */}
+      <BadgesHero earnedCount={earnedCount} totalCount={badges.length} />
 
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-        <View className="py-4">
-
-          {/* Progress summary */}
-          <View className="mx-4 mb-5 bg-white rounded-2xl border border-border p-4 flex-row items-center">
-            <Text className="text-4xl mr-4">🏅</Text>
-            <View className="flex-1">
-              <Text className="text-base font-bold text-text-primary mb-0.5">
-                {earnedCount === 0
-                  ? 'Start earning badges!'
-                  : earnedCount === badges.length
-                  ? 'All badges earned! Amazing! 🎉'
-                  : `${badges.length - earnedCount} more to go`}
-              </Text>
-              <Text className="text-sm text-text-muted">
-                Complete lessons to unlock achievements
-              </Text>
-            </View>
-          </View>
-
-          {/* Badge Grid */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, backgroundColor: '#1A1040' }}
+        contentContainerStyle={{ paddingBottom: 88 }}
+      >
+        {/* Dark badge grid zone */}
+        <View
+          style={{
+            backgroundColor: '#1A1040',
+            borderRadius: 20,
+            margin: 12,
+            padding: 4,
+          }}
+        >
           <BadgeGrid badges={badges} />
-
         </View>
       </ScrollView>
     </SafeAreaView>

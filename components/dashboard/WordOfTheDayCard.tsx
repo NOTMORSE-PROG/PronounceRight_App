@@ -203,9 +203,6 @@ export default function WordOfTheDayCard({
               Word of the Day
             </Text>
           </View>
-          <Text className="text-xs text-text-muted">
-            #{wordIndex} of {totalWords}
-          </Text>
         </Pressable>
 
         {/* Collapsed: word + IPA + practice button */}
