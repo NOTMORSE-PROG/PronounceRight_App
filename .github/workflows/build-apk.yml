@@ -48,11 +48,13 @@ jobs:
           gh release download assets-v1 \
             --repo NOTMORSE-PROG/PronounceRight_App \
             --dir assets/models \
-            --pattern "*.bin"
+            --pattern "*.bin" \
+            --clobber
           gh release download assets-v1 \
             --repo NOTMORSE-PROG/PronounceRight_App \
             --dir assets/videos/m3c3 \
-            --pattern "*.mp4"
+            --pattern "*.mp4" \
+            --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
