@@ -16,18 +16,10 @@ on:
         options:
           - release
           - debug
-      variant:
-        description: "App variant"
-        required: true
-        default: "user"
-        type: choice
-        options:
-          - user
-          - admin
 
 jobs:
   build:
-    name: Build APK (${{ github.event.inputs.variant || 'user' }} / ${{ github.event.inputs.build_type || 'release' }})
+    name: Build APK (${{ matrix.variant }} / ${{ github.event.inputs.build_type || 'release' }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
     if: >
@@ -35,6 +27,10 @@ jobs:
       github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: write
+
+    strategy:
+      matrix:
+        variant: [user, admin]
 
     steps:
       - name: Checkout repository
@@ -105,7 +101,7 @@ jobs:
 
       - name: Generate native project
         env:
-          EXPO_PUBLIC_IS_ADMIN: ${{ github.event.inputs.variant == 'admin' && 'true' || 'false' }}
+          EXPO_PUBLIC_IS_ADMIN: ${{ matrix.variant == 'admin' && 'true' || 'false' }}
         run: npx expo prebuild --clean --platform android
 
       - name: Setup Java 17
@@ -139,7 +135,6 @@ jobs:
         id: gradle
         run: |
           BUILD_TYPE="${{ github.event.inputs.build_type || 'release' }}"
-          VARIANT="${{ github.event.inputs.variant || 'user' }}"
           if [ "$BUILD_TYPE" = "debug" ]; then
             echo "command=assembleDebug" >> "$GITHUB_OUTPUT"
             echo "apk_path=android/app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_OUTPUT"
@@ -147,7 +142,6 @@ jobs:
             echo "command=assembleRelease" >> "$GITHUB_OUTPUT"
             echo "apk_path=android/app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_OUTPUT"
           fi
-          echo "variant=$VARIANT" >> "$GITHUB_OUTPUT"
           echo "build_type=$BUILD_TYPE" >> "$GITHUB_OUTPUT"
 
       - name: Build APK
@@ -165,7 +159,7 @@ jobs:
           TIMESTAMP=$(date +%Y%m%d-%H%M)
           COMMIT_MSG=$(git log -1 --format="%s")
           BUILD_TYPE="${{ steps.gradle.outputs.build_type }}"
-          VARIANT="${{ steps.gradle.outputs.variant }}"
+          VARIANT="${{ matrix.variant }}"
           APK_NAME="SpeakRight-${VARIANT}-${BUILD_TYPE}-${BRANCH_SLUG}-${SHORT_SHA}-${TIMESTAMP}.apk"
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
           echo "branch_slug=$BRANCH_SLUG" >> $GITHUB_OUTPUT
@@ -176,12 +170,11 @@ jobs:
 
       - name: Rename APK
         run: |
-          APK_PATH="${{ steps.gradle.outputs.apk_path }}"
-          cp "$APK_PATH" ${{ steps.meta.outputs.apk_name }}
+          cp "${{ steps.gradle.outputs.apk_path }}" ${{ steps.meta.outputs.apk_name }}
 
       - name: Delete existing release and tag
         run: |
-          TAG=${{ steps.gradle.outputs.variant == 'admin' && 'latest-admin' || 'latest' }}
+          TAG=${{ matrix.variant == 'admin' && 'latest-admin' || 'latest' }}
           gh release delete "$TAG" --cleanup-tag --yes || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -189,10 +182,10 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.gradle.outputs.variant == 'admin' && 'latest-admin' || 'latest' }}
-          name: ${{ steps.gradle.outputs.variant == 'admin' && 'SpeakRight Admin — Latest Build' || 'SpeakRight — Latest Build' }}
+          tag_name: ${{ matrix.variant == 'admin' && 'latest-admin' || 'latest' }}
+          name: ${{ matrix.variant == 'admin' && 'SpeakRight Admin — Latest Build' || 'SpeakRight — Latest Build' }}
           body: |
-            **Variant:** `${{ steps.gradle.outputs.variant }}`
+            **Variant:** `${{ matrix.variant }}`
             **Branch:** `${{ steps.meta.outputs.branch }}`
             **Commit:** `${{ steps.meta.outputs.short_sha }}`
             **Message:** ${{ steps.meta.outputs.commit_msg }}
@@ -206,9 +199,9 @@ jobs:
       - name: Build summary
         if: always()
         run: |
-          echo "## SpeakRight APK Build" >> $GITHUB_STEP_SUMMARY
+          echo "## SpeakRight APK Build (${{ matrix.variant }})" >> $GITHUB_STEP_SUMMARY
           echo "- **APK:** \`${{ steps.meta.outputs.apk_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Variant:** \`${{ steps.gradle.outputs.variant }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Variant:** \`${{ matrix.variant }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** \`${{ steps.meta.outputs.branch }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** \`${{ steps.meta.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Build type:** \`${{ steps.gradle.outputs.build_type }}\`" >> $GITHUB_STEP_SUMMARY
