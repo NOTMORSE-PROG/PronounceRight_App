@@ -145,6 +145,8 @@ jobs:
           echo "build_type=$BUILD_TYPE" >> "$GITHUB_OUTPUT"
 
       - name: Build APK
+        env:
+          EXPO_PUBLIC_IS_ADMIN: ${{ matrix.variant == 'admin' && 'true' || 'false' }}
         run: |
           cd android
           chmod +x gradlew
